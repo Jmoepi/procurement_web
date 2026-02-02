@@ -1,0 +1,342 @@
+{
+  "sources": [
+    {
+      "name": "eTender Portal",
+      "url": "https://www.etenders.gov.za",
+      "source_type": "government",
+      "categories": ["courier", "printing", "logistics", "stationery", "it_hardware", "general"],
+      "crawl_frequency": "daily",
+      "priority": 1,
+      "description": "Central Government Tender Portal - All national and provincial government tenders"
+    },
+    {
+      "name": "Gauteng Treasury",
+      "url": "https://www.treasury.gpg.gov.za/Pages/SupplyChainManagement.aspx",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "gauteng",
+      "priority": 2
+    },
+    {
+      "name": "Western Cape Treasury",
+      "url": "https://www.westerncape.gov.za/tenders",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "western_cape",
+      "priority": 2
+    },
+    {
+      "name": "KwaZulu-Natal Treasury",
+      "url": "https://www.kzntreasury.gov.za/index.php/tenders",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "kwazulu_natal",
+      "priority": 2
+    },
+    {
+      "name": "Eastern Cape Treasury",
+      "url": "https://ectreasury.gov.za/tenders/",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "eastern_cape",
+      "priority": 2
+    },
+    {
+      "name": "Free State Treasury",
+      "url": "https://provincialgovernment.co.za/units/view/104/free-state/treasury",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "free_state",
+      "priority": 2
+    },
+    {
+      "name": "Mpumalanga Treasury",
+      "url": "https://www.mpumalanga.gov.za/departments/treasury/tenders",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "mpumalanga",
+      "priority": 2
+    },
+    {
+      "name": "Limpopo Treasury",
+      "url": "https://www.treasury.limpopo.gov.za",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "limpopo",
+      "priority": 2
+    },
+    {
+      "name": "North West Treasury",
+      "url": "https://www.nwpg.gov.za/treasury",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "north_west",
+      "priority": 2
+    },
+    {
+      "name": "Northern Cape Treasury",
+      "url": "https://www.northern-cape.gov.za/treasury",
+      "source_type": "treasury",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "province": "northern_cape",
+      "priority": 2
+    },
+    {
+      "name": "City of Johannesburg",
+      "url": "https://www.joburg.org.za/work/Pages/Tenders/Tenders.aspx",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "City of Cape Town",
+      "url": "https://www.capetown.gov.za/work%20and%20business/Tenders-and-supplier-management/Tenders",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "eThekwini Municipality (Durban)",
+      "url": "https://www.durban.gov.za/City_Services/BSU/Pages/Tenders.aspx",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "City of Tshwane (Pretoria)",
+      "url": "https://www.tshwane.gov.za/sites/business/Tenders/Pages/default.aspx",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "Ekurhuleni Municipality",
+      "url": "https://www.ekurhuleni.gov.za/tenders-and-quotations/",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "Nelson Mandela Bay Municipality",
+      "url": "https://www.nelsonmandelabay.gov.za/page/tenders",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "Buffalo City Municipality",
+      "url": "https://www.buffalocity.gov.za/tenders.php",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "Mangaung Municipality",
+      "url": "https://www.mangaung.co.za/tenders/",
+      "source_type": "metro",
+      "categories": ["courier", "printing", "logistics", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 3
+    },
+    {
+      "name": "Transnet",
+      "url": "https://www.transnet.net/TenderProcess/Pages/CurrentAdvertisedTenders.aspx",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "Transnet SOC Ltd - Freight, Rail, Ports and Pipelines"
+    },
+    {
+      "name": "Eskom",
+      "url": "https://www.eskom.co.za/eskom-tenders/",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics", "stationery", "it_hardware"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "Eskom Holdings SOC Ltd - Electricity utility"
+    },
+    {
+      "name": "SA Post Office",
+      "url": "https://www.postoffice.co.za/tenders",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "South African Post Office - Courier and logistics focus"
+    },
+    {
+      "name": "PRASA",
+      "url": "https://www.prasa.com/Tenders.html",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "Passenger Rail Agency of South Africa"
+    },
+    {
+      "name": "SANRAL",
+      "url": "https://www.nra.co.za/live/content.php?Category_ID=130",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "South African National Roads Agency Limited"
+    },
+    {
+      "name": "SAA",
+      "url": "https://www.flysaa.com/about-us/procurement",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "South African Airways"
+    },
+    {
+      "name": "ACSA",
+      "url": "https://www.airports.co.za/procurement",
+      "source_type": "soe",
+      "categories": ["courier", "printing", "logistics"],
+      "crawl_frequency": "daily",
+      "priority": 4,
+      "description": "Airports Company South Africa"
+    },
+    {
+      "name": "University of Cape Town",
+      "url": "https://www.uct.ac.za/main/explore-uct/procurement/tenders",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "University of Pretoria",
+      "url": "https://www.up.ac.za/procurement-and-tenders",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "University of the Witwatersrand",
+      "url": "https://www.wits.ac.za/finance/procurement/tenders/",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "Stellenbosch University",
+      "url": "https://www.sun.ac.za/english/finance/procurement/tender-bulletin",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "University of KwaZulu-Natal",
+      "url": "https://scm.ukzn.ac.za/tenders/",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "University of Johannesburg",
+      "url": "https://www.uj.ac.za/about/finance/scm/tenders/",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "UNISA",
+      "url": "https://www.unisa.ac.za/sites/corporate/default/Procurement/Tenders",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "North-West University",
+      "url": "https://www.nwu.ac.za/tenders",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "Rhodes University",
+      "url": "https://www.ru.ac.za/finance/procurement/tenders/",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "University of the Free State",
+      "url": "https://www.ufs.ac.za/procurement/tenders",
+      "source_type": "university",
+      "categories": ["courier", "printing", "stationery"],
+      "crawl_frequency": "daily",
+      "priority": 5
+    },
+    {
+      "name": "TenderInfo SA",
+      "url": "https://www.tenderinfo.co.za",
+      "source_type": "aggregator",
+      "categories": ["courier", "printing", "logistics", "stationery", "it_hardware", "general"],
+      "crawl_frequency": "daily",
+      "priority": 6,
+      "requires_auth": true,
+      "description": "Commercial tender aggregator"
+    },
+    {
+      "name": "SA Tenders",
+      "url": "https://www.sa-tenders.co.za",
+      "source_type": "aggregator",
+      "categories": ["courier", "printing", "logistics", "stationery", "it_hardware", "general"],
+      "crawl_frequency": "daily",
+      "priority": 6,
+      "requires_auth": true,
+      "description": "Commercial tender aggregator"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2024-01-15",
+    "total_sources": 37,
+    "categories": {
+      "courier": "Courier, delivery, mail, parcel services",
+      "printing": "Printing, publications, signage, copying",
+      "logistics": "Logistics, transport, warehousing",
+      "stationery": "Stationery, office supplies, consumables",
+      "it_hardware": "IT equipment, computers, networking",
+      "general": "General procurement not fitting other categories"
+    },
+    "source_types": {
+      "government": "Central government portals",
+      "treasury": "Provincial treasury departments",
+      "metro": "Metropolitan municipalities",
+      "soe": "State-owned enterprises",
+      "university": "Universities and tertiary institutions",
+      "aggregator": "Commercial tender aggregators"
+    }
+  }
+}
