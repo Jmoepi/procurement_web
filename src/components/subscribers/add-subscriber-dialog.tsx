@@ -82,9 +82,15 @@ export function AddSubscriberDialog({
       const { error } = await supabase.from('subscriptions').insert({
         tenant_id: tenantId,
         email: email.trim().toLowerCase(),
-        name: name.trim() || null,
-        categories: selectedCategories,
         is_active: true,
+        preferences: {
+          categories: selectedCategories,
+          highPriorityOnly: false,
+          keywordsInclude: [],
+          keywordsExclude: [],
+          maxItems: 15,
+          digestFrequency: 'daily',
+        },
       })
 
       if (error) {

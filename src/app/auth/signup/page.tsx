@@ -41,7 +41,7 @@ export default async function SignupPage() {
                 START YOUR FREE TRIAL
               </p>
               <h1 className="text-4xl font-bold leading-tight">
-                14 days free,<br />no credit card required
+                30 days free,<br />no credit card required
               </h1>
             </div>
 
@@ -89,7 +89,7 @@ export default async function SignupPage() {
           <div className="text-center lg:text-left">
             <h1 className="text-2xl sm:text-3xl font-bold">Create your account</h1>
             <p className="text-muted-foreground mt-2">
-              Start your 14-day free trial today
+              Start your 30-day free trial today
             </p>
           </div>
 

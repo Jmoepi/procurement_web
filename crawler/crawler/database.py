@@ -22,16 +22,36 @@ class Database:
     async def get_active_tenants(self) -> list[dict]:
         """Get all active tenants."""
         response = self.client.table("tenants").select(
-            "id, name, plan, digest_time"
-        ).eq("is_active", True).execute()
-        return response.data
+            "id, name, plan, settings"
+        ).execute()
+        # Filter active tenants and extract digest_time from settings
+        tenants = []
+        for t in response.data:
+            # Check is_active (default to True if not set)
+            is_active = t.get("is_active", True)
+            if not is_active:
+                continue
+            # Get digest_time from settings or use default
+            settings = t.get("settings") or {}
+            t["digest_time"] = settings.get("digest_time", "08:00")
+            tenants.append(t)
+        return tenants
     
     async def get_tenant_sources(self, tenant_id: str) -> list[dict]:
         """Get enabled sources for a tenant."""
         response = self.client.table("sources").select(
-            "id, name, url, source_type, categories, requires_auth, auth_config"
-        ).eq("tenant_id", tenant_id).eq("is_enabled", True).execute()
-        return response.data
+            "id, name, url, type, tags, requires_js, metadata"
+        ).eq("tenant_id", tenant_id).eq("enabled", True).execute()
+        # Map to expected format
+        sources = []
+        for s in response.data:
+            s["source_type"] = s.pop("type", "portal")
+            s["categories"] = s.pop("tags", ["courier", "printing"])
+            metadata = s.pop("metadata", {}) or {}
+            s["requires_auth"] = metadata.get("requires_auth", False)
+            s["auth_config"] = metadata.get("auth_config")
+            sources.append(s)
+        return sources
     
     async def get_tenant_subscribers(
         self, 
@@ -40,18 +60,26 @@ class Database:
     ) -> list[dict]:
         """Get active subscribers for a tenant."""
         query = self.client.table("subscriptions").select(
-            "id, email, name, categories"
+            "id, email, preferences"
         ).eq("tenant_id", tenant_id).eq("is_active", True)
         
         response = query.execute()
         
+        # Extract categories from preferences JSONB
+        subscribers = []
+        for sub in response.data:
+            prefs = sub.get("preferences") or {}
+            sub["categories"] = prefs.get("categories", ["courier", "printing", "both"])
+            sub["name"] = prefs.get("name", sub["email"].split("@")[0])
+            subscribers.append(sub)
+        
         if categories:
-            # Filter by categories on client side (Supabase array contains is limited)
+            # Filter by categories on client side
             return [
-                sub for sub in response.data
+                sub for sub in subscribers
                 if any(cat in sub["categories"] for cat in categories)
             ]
-        return response.data
+        return subscribers
     
     async def check_tender_exists(
         self, 
@@ -61,45 +89,73 @@ class Database:
         source_url: str = ""
     ) -> bool:
         """Check if a tender already exists in the database."""
-        if reference_number:
+        import hashlib
+        
+        # Check by content hash (most reliable)
+        if source_url:
+            content_str = f"{title}:{source_url}"
+            content_hash = hashlib.sha256(content_str.encode()).hexdigest()[:32]
+            
             response = self.client.table("tenders").select("id").eq(
                 "tenant_id", tenant_id
-            ).eq("reference_number", reference_number).limit(1).execute()
+            ).eq("content_hash", content_hash).limit(1).execute()
             if response.data:
                 return True
         
-        # Also check by source URL
+        # Also check by URL directly
         if source_url:
             response = self.client.table("tenders").select("id").eq(
                 "tenant_id", tenant_id
-            ).eq("source_url", source_url).limit(1).execute()
+            ).eq("url", source_url).limit(1).execute()
             if response.data:
                 return True
+        
+        # Check by reference number in metadata
+        if reference_number:
+            response = self.client.table("tenders").select("id, metadata").eq(
+                "tenant_id", tenant_id
+            ).execute()
+            for tender in response.data:
+                meta = tender.get("metadata") or {}
+                if meta.get("reference_number") == reference_number:
+                    return True
         
         return False
     
     async def insert_tender(self, tenant_id: str, tender: CrawledTender) -> Optional[str]:
         """Insert a new tender into the database."""
         try:
+            import hashlib
+            
+            # Generate content hash for deduplication
+            content_str = f"{tender.title}:{tender.source_url}"
+            content_hash = hashlib.sha256(content_str.encode()).hexdigest()[:32]
+            
             data = {
                 "tenant_id": tenant_id,
                 "title": tender.title,
-                "reference_number": tender.reference_number,
-                "description": tender.description,
-                "issuer": tender.issuer,
-                "source_url": str(tender.source_url),
-                "closing_date": tender.closing_date.isoformat() if tender.closing_date else None,
-                "published_date": tender.published_date.isoformat() if tender.published_date else None,
+                "url": str(tender.source_url),  # Schema uses 'url' not 'source_url'
                 "category": tender.category.value,
                 "priority": tender.priority.value,
-                "estimated_value": tender.estimated_value,
-                "location": tender.location,
-                "contact_email": tender.contact_email,
-                "contact_phone": tender.contact_phone,
+                "closing_at": tender.closing_date.isoformat() if tender.closing_date else None,
+                "summary": tender.description,
+                "content_hash": content_hash,
                 "source_id": tender.source_id,
+                "metadata": {
+                    "reference_number": tender.reference_number,
+                    "issuer": tender.issuer,
+                    "published_date": tender.published_date.isoformat() if tender.published_date else None,
+                    "estimated_value": tender.estimated_value,
+                    "location": tender.location,
+                    "contact_email": tender.contact_email,
+                    "contact_phone": tender.contact_phone,
+                }
             }
             
-            response = self.client.table("tenders").insert(data).execute()
+            response = self.client.table("tenders").upsert(
+                data, 
+                on_conflict="tenant_id,content_hash"
+            ).execute()
             
             if response.data:
                 tender_id = response.data[0]["id"]
@@ -108,8 +164,9 @@ class Database:
                 for doc_url in tender.document_urls:
                     self.client.table("tender_documents").insert({
                         "tender_id": tender_id,
-                        "url": doc_url,
-                        "doc_type": "specification" if "spec" in doc_url.lower() else "other",
+                        "doc_type": "pdf" if doc_url.lower().endswith(".pdf") else "html",
+                        "filename": doc_url.split("/")[-1],
+                        "metadata": {"url": doc_url}
                     }).execute()
                 
                 return tender_id
@@ -128,22 +185,28 @@ class Database:
     ):
         """Update source crawl statistics."""
         try:
-            # Get current stats
+            # Get current metadata
             response = self.client.table("sources").select(
-                "crawl_success_rate, tenders_found"
+                "metadata, last_crawled_at"
             ).eq("id", source_id).single().execute()
             
             current = response.data
-            current_rate = current.get("crawl_success_rate") or 100
-            current_tenders = current.get("tenders_found") or 0
+            metadata = current.get("metadata") or {}
+            current_rate = metadata.get("crawl_success_rate", 100)
+            current_tenders = metadata.get("tenders_found", 0)
             
             # Calculate new success rate (weighted average)
             new_rate = (current_rate * 0.9) + ((100 if success else 0) * 0.1)
             
+            # Update metadata with crawl stats
+            metadata["crawl_success_rate"] = round(new_rate, 1)
+            metadata["tenders_found"] = current_tenders + tenders_found
+            metadata["last_crawl_success"] = success
+            
             self.client.table("sources").update({
                 "last_crawled_at": datetime.utcnow().isoformat(),
-                "crawl_success_rate": round(new_rate, 1),
-                "tenders_found": current_tenders + tenders_found,
+                "last_crawl_status": "success" if success else "failed",
+                "metadata": metadata,
             }).eq("id", source_id).execute()
             
         except Exception as e:
@@ -158,8 +221,8 @@ class Database:
         """Get tenders created since a given time."""
         query = self.client.table("tenders").select("*").eq(
             "tenant_id", tenant_id
-        ).gte("created_at", since.isoformat()).order("priority", desc=True).order(
-            "closing_date", desc=False
+        ).gte("first_seen", since.isoformat()).order("priority", desc=True).order(
+            "closing_at", desc=False
         )
         
         if categories:
@@ -175,11 +238,14 @@ class Database:
         recipient_count: int
     ) -> str:
         """Create a digest run record."""
+        from datetime import date
         response = self.client.table("digest_runs").insert({
             "tenant_id": tenant_id,
-            "tender_count": tender_count,
-            "recipient_count": recipient_count,
+            "run_date": date.today().isoformat(),
+            "tenders_found": tender_count,
+            "emails_sent": 0,  # Will be updated after sending
             "status": "pending",
+            "metadata": {"recipient_count": recipient_count}
         }).execute()
         return response.data[0]["id"]
     
@@ -187,15 +253,18 @@ class Database:
         self, 
         digest_id: str, 
         status: str,
+        emails_sent: int = 0,
         error_message: Optional[str] = None
     ):
         """Update digest run status."""
         data = {
-            "status": status,
-            "sent_at": datetime.utcnow().isoformat() if status == "completed" else None,
+            "status": "success" if status == "completed" else status,
+            "finished_at": datetime.utcnow().isoformat(),
+            "emails_sent": emails_sent,
         }
         if error_message:
             data["error_message"] = error_message
+            data["status"] = "fail"
         
         self.client.table("digest_runs").update(data).eq("id", digest_id).execute()
 

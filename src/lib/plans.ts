@@ -2,6 +2,9 @@
 
 import { PlanType } from "@/types";
 
+// Free trial configuration
+export const FREE_TRIAL_DAYS = 30;
+
 export interface PlanFeature {
   name: string;
   starter: boolean | string;

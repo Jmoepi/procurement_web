@@ -20,10 +20,10 @@ export default async function DigestPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('tenant_id')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/auth/login')
+  if (!profile) redirect('/dashboard')
 
   // Get recent tenders for preview (tenders from last 24 hours)
   const yesterday = new Date()
@@ -33,9 +33,10 @@ export default async function DigestPage() {
     .from('tenders')
     .select('*')
     .eq('tenant_id', profile.tenant_id)
-    .gte('created_at', yesterday.toISOString())
+    .eq('expired', false)
+    .gte('first_seen', yesterday.toISOString())
     .order('priority', { ascending: false })
-    .order('closing_date', { ascending: true })
+    .order('closing_at', { ascending: true })
     .limit(20)
 
   // Get digest history
@@ -43,7 +44,7 @@ export default async function DigestPage() {
     .from('digest_runs')
     .select('*')
     .eq('tenant_id', profile.tenant_id)
-    .order('sent_at', { ascending: false })
+    .order('started_at', { ascending: false })
     .limit(30)
 
   // Get tenant info

@@ -18,10 +18,10 @@ export default async function AnalyticsPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('tenant_id')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/auth/login')
+  if (!profile) redirect('/dashboard')
 
   // Get tender stats by category
   const { data: categoryStats } = await supabase
@@ -49,19 +49,35 @@ export default async function AnalyticsPage() {
   // Get source activity
   const { data: sourceStats } = await supabase
     .from('sources')
-    .select('name, last_crawled_at, crawl_success_rate, tenders_found')
+    .select('name, last_crawled_at, metadata')
     .eq('tenant_id', profile.tenant_id)
-    .eq('is_enabled', true)
-    .order('tenders_found', { ascending: false })
+    .eq('enabled', true)
+    .order('last_crawled_at', { ascending: false })
     .limit(10)
+
+  // Map source stats to include crawl_success_rate and tenders_found from metadata
+  const mappedSourceStats = (sourceStats || []).map(s => ({
+    name: s.name,
+    last_crawled_at: s.last_crawled_at,
+    crawl_success_rate: (s.metadata as Record<string, unknown>)?.crawl_success_rate as number | null ?? null,
+    tenders_found: (s.metadata as Record<string, unknown>)?.tenders_found as number | null ?? null,
+  }))
 
   // Get digest stats
   const { data: digestStats } = await supabase
     .from('digest_runs')
-    .select('created_at, tender_count, recipient_count, status')
+    .select('created_at, tenders_found, emails_sent, status')
     .eq('tenant_id', profile.tenant_id)
     .order('created_at', { ascending: false })
     .limit(30)
+
+  // Map digest stats to expected format
+  const mappedDigestStats = (digestStats || []).map(d => ({
+    created_at: d.created_at,
+    tender_count: d.tenders_found ?? 0,
+    recipient_count: d.emails_sent ?? 0,
+    status: d.status,
+  }))
 
   // Process category counts
   const categoryCounts = (categoryStats || []).reduce((acc, { category }) => {
@@ -95,8 +111,8 @@ export default async function AnalyticsPage() {
         categoryCounts={categoryCounts}
         priorityCounts={priorityCounts}
         dailyCounts={dailyCounts}
-        sourceStats={sourceStats || []}
-        digestStats={digestStats || []}
+        sourceStats={mappedSourceStats}
+        digestStats={mappedDigestStats}
         totalTenders={categoryStats?.length || 0}
       />
     </div>

@@ -149,8 +149,8 @@ export function SubscribersTable({ subscribers, tenantId }: SubscribersTableProp
           <TableHeader>
             <TableRow>
               <TableHead>Email</TableHead>
-              <TableHead>Name</TableHead>
               <TableHead>Categories</TableHead>
+              <TableHead>Frequency</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Added</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
@@ -160,11 +160,13 @@ export function SubscribersTable({ subscribers, tenantId }: SubscribersTableProp
             {subscribers.map((subscriber) => (
               <TableRow key={subscriber.id}>
                 <TableCell className="font-medium">{subscriber.email}</TableCell>
-                <TableCell>{subscriber.name || '-'}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {getCategoryBadges(subscriber.categories)}
+                    {getCategoryBadges(subscriber.preferences?.categories || [])}
                   </div>
+                </TableCell>
+                <TableCell className="capitalize">
+                  {subscriber.preferences?.digestFrequency || 'daily'}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">

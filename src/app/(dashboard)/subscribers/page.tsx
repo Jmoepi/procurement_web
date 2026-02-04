@@ -19,28 +19,27 @@ export default async function SubscribersPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('tenant_id, role')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/auth/login')
+  if (!profile) redirect('/dashboard')
 
   // Get subscribers for this tenant
-  const { data: subscribers, error } = await supabase
+  const { data: subscribers } = await supabase
     .from('subscriptions')
     .select('*')
     .eq('tenant_id', profile.tenant_id)
     .order('created_at', { ascending: false })
 
-  // Get tenant info for limits
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('*, plan_limits(*)')
-    .eq('id', profile.tenant_id)
+  // Get tenant stats for limits
+  const { data: stats } = await supabase
+    .from('tenant_stats')
+    .select('*')
+    .eq('tenant_id', profile.tenant_id)
     .single()
 
-  const planLimits = tenant?.plan_limits
   const subscriberCount = subscribers?.length || 0
-  const subscriberLimit = planLimits?.max_subscribers || 1
+  const subscriberLimit = stats?.max_subscribers || 1
 
   return (
     <div className="space-y-6">

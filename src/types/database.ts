@@ -14,6 +14,7 @@ export interface Tenant {
   name: string;
   slug: string;
   plan: PlanType;
+  trial_ends_at: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
   settings: Record<string, unknown>;
@@ -98,9 +99,7 @@ export interface Subscription {
   tenant_id: string;
   user_id?: string;
   email: string;
-  name?: string;
   is_active: boolean;
-  categories: string[];
   preferences: SubscriptionPreferences;
   last_digest_sent_at?: string;
   unsubscribe_token: string;

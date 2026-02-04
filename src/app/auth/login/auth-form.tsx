@@ -57,15 +57,22 @@ export function AuthForm({ mode }: AuthFormProps) {
             data: {
               full_name: fullName,
             },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
 
         if (error) throw error;
 
+        // Store email for OTP verification page
+        sessionStorage.setItem("verification_email", email);
+        
         toast({
-          title: "Check your email",
-          description: "We've sent you a confirmation link to verify your account.",
+          title: "Verification code sent!",
+          description: "Please check your email for the 6-digit code.",
         });
+
+        // Redirect to OTP verification page
+        router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,

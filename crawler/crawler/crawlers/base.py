@@ -31,9 +31,11 @@ class BaseCrawler(ABC):
         self.source_name = source_name
         self.base_url = base_url
         self.categories = categories
+        # Disable SSL verification for development (SA gov sites often have cert issues)
         self.client = httpx.AsyncClient(
             timeout=settings.request_timeout,
             follow_redirects=True,
+            verify=False,  # Disable SSL verification for dev
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
