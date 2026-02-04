@@ -126,7 +126,7 @@ class EmailSender:
                     <!-- CTA -->
                     <tr>
                         <td style="padding: 30px 40px; text-align: center;">
-                            <a href="https://procurementradar.co.za/tenders" 
+                            <a href="{settings.app_base_url}/tenders" 
                                style="display: inline-block; background-color: #16a34a; color: #ffffff; padding: 14px 28px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 8px;">
                                 View All Tenders →
                             </a>
@@ -140,9 +140,9 @@ class EmailSender:
                                 You're receiving this because you're subscribed to Procurement Radar SA.
                             </p>
                             <p style="margin: 0; font-size: 12px;">
-                                <a href="https://procurementradar.co.za/settings" style="color: #16a34a; text-decoration: none;">Manage Preferences</a>
+                                <a href="{settings.app_base_url}/settings" style="color: #16a34a; text-decoration: none;">Manage Preferences</a>
                                 &nbsp;·&nbsp;
-                                <a href="https://procurementradar.co.za/unsubscribe" style="color: #16a34a; text-decoration: none;">Unsubscribe</a>
+                                <a href="{settings.app_base_url}/unsubscribe" style="color: #16a34a; text-decoration: none;">Unsubscribe</a>
                             </p>
                             <p style="margin: 20px 0 0; color: #9ca3af; font-size: 11px;">
                                 © {datetime.now().year} Procurement Radar SA. All rights reserved.

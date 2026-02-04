@@ -20,6 +20,9 @@ class Settings(BaseModel):
     resend_api_key: str = os.getenv("RESEND_API_KEY", "")
     email_from: str = os.getenv("EMAIL_FROM", "Procurement Radar <noreply@procurementradar.co.za>")
     
+    # App
+    app_base_url: str = os.getenv("APP_BASE_URL", "https://procurement-web-iota.vercel.app")
+    
     # Crawler settings
     max_concurrent_requests: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
     request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
