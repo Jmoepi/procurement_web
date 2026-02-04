@@ -96,7 +96,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   };
 
   return (
-    <Card className="border-0 shadow-lg">
+    <Card className="border border-border/60 shadow-xl bg-card/80 backdrop-blur-sm">
       <CardContent className="pt-6 pb-8 px-6 sm:px-8">
         <form onSubmit={handleSubmit} className="space-y-5">
           {mode === "signup" && (
@@ -116,13 +116,13 @@ export function AuthForm({ mode }: AuthFormProps) {
                   onBlur={() => setFocused(null)}
                   required
                   className={cn(
-                    "pl-10 h-11 transition-all",
-                    focused === "fullName" && "ring-2 ring-primary/20"
+                    "pl-10 h-11 rounded-xl border-border/60 transition-all duration-300",
+                    focused === "fullName" && "ring-2 ring-primary/20 border-primary/30"
                   )}
                 />
                 {fullName.length >= 2 && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-4 w-4 text-emerald-500" />
                   </div>
                 )}
               </div>
@@ -145,14 +145,14 @@ export function AuthForm({ mode }: AuthFormProps) {
                 onBlur={() => setFocused(null)}
                 required
                 className={cn(
-                  "pl-10 h-11 transition-all",
-                  focused === "email" && "ring-2 ring-primary/20"
+                  "pl-10 h-11 rounded-xl border-border/60 transition-all duration-300",
+                  focused === "email" && "ring-2 ring-primary/20 border-primary/30"
                 )}
               />
               {email && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   {isValidEmail ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-4 w-4 text-emerald-500" />
                   ) : (
                     <X className="h-4 w-4 text-muted-foreground" />
                   )}
@@ -178,8 +178,8 @@ export function AuthForm({ mode }: AuthFormProps) {
                 required
                 minLength={6}
                 className={cn(
-                  "pl-10 pr-10 h-11 transition-all",
-                  focused === "password" && "ring-2 ring-primary/20"
+                  "pl-10 pr-10 h-11 rounded-xl border-border/60 transition-all duration-300",
+                  focused === "password" && "ring-2 ring-primary/20 border-primary/30"
                 )}
               />
               <button
@@ -203,14 +203,14 @@ export function AuthForm({ mode }: AuthFormProps) {
                     <div
                       key={i}
                       className={cn(
-                        "h-1 flex-1 rounded-full transition-colors",
+                        "h-1.5 flex-1 rounded-full transition-all duration-300",
                         i <= passwordStrength.score ? passwordStrength.color : "bg-muted"
                       )}
                     />
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Password strength: <span className="font-medium">{passwordStrength.label}</span>
+                  Password strength: <span className="font-semibold">{passwordStrength.label}</span>
                 </p>
               </div>
             )}
@@ -218,7 +218,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           
           <Button 
             type="submit" 
-            className="w-full h-11 text-base font-medium group" 
+            className="w-full h-11 text-base font-semibold rounded-xl bg-gradient-to-r from-primary to-primary/90 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 group" 
             disabled={loading}
           >
             {loading ? (
@@ -229,7 +229,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             ) : (
               <>
                 {mode === "signup" ? "Create Account" : "Sign In"}
-                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
               </>
             )}
           </Button>
