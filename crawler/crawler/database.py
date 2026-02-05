@@ -14,6 +14,17 @@ class Database:
     """Database client for crawler operations."""
     
     def __init__(self):
+        if not settings.supabase_url:
+            raise ValueError(
+                "SUPABASE_URL environment variable is required. "
+                "Set it in your .env file or as a GitHub Actions secret."
+            )
+        if not settings.supabase_service_role_key:
+            raise ValueError(
+                "SUPABASE_SERVICE_ROLE_KEY environment variable is required. "
+                "Set it in your .env file or as a GitHub Actions secret."
+            )
+        
         self.client: Client = create_client(
             settings.supabase_url,
             settings.supabase_service_role_key
@@ -269,5 +280,18 @@ class Database:
         self.client.table("digest_runs").update(data).eq("id", digest_id).execute()
 
 
-# Global database instance
+# Lazy-loaded global database instance
+_db_instance: Optional[Database] = None
+
+
+def get_db() -> Database:
+    """Get the database instance (lazy initialization)."""
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = Database()
+    return _db_instance
+
+
+# Module-level db - initialized on first import
+# Will raise clear error if env vars not set
 db = Database()
