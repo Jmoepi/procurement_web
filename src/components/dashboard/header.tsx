@@ -51,23 +51,18 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
   const planName = profile?.tenant?.plan || "starter";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+    <header className="sticky top-0 z-50 w-full border-b border-black/[0.04] dark:border-white/[0.06] bg-white/80 dark:bg-black/60 backdrop-blur-2xl backdrop-saturate-150">
+      <div className="flex h-14 items-center justify-between px-4 lg:px-6">
         {/* Left side - Logo and mobile nav */}
         <div className="flex items-center gap-3">
           <MobileNav profile={profile} />
-          <Link href="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-primary/40 group-hover:scale-105">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Search className="h-4 w-4 text-primary-foreground" />
-              {/* Subtle shine effect */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
-            <div className="hidden sm:block">
-              <span className="text-lg font-bold tracking-tight">
-                Procurement Radar
-              </span>
-              <span className="hidden lg:inline text-lg font-bold text-muted-foreground"> SA</span>
-            </div>
+            <span className="hidden sm:block text-base font-semibold tracking-tight">
+              Procurement Radar
+            </span>
           </Link>
         </div>
 

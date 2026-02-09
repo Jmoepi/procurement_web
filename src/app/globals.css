@@ -4,97 +4,97 @@
 
 @layer base {
   :root {
-    /* Refined, sophisticated color palette */
-    --background: 210 20% 99%;
-    --foreground: 222 47% 11%;
+    /* Apple-inspired minimal color palette */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 0 0% 9%;
     
-    /* Emerald-based primary - sophisticated green */
-    --primary: 160 84% 39%;
+    /* Professional blue primary - Apple-style */
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
     
-    /* Subtle secondary */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* Clean neutral secondary */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
     
-    /* Muted tones */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    /* Refined muted tones */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
     
-    /* Accent - slate blue */
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent - subtle violet-blue */
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
     
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 160 84% 39%;
-    --radius: 0.75rem;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 211 100% 50%;
+    --radius: 0.875rem;
     
-    /* Chart colors - harmonious palette */
-    --chart-1: 160 84% 39%;
-    --chart-2: 217 91% 60%;
-    --chart-3: 280 68% 60%;
-    --chart-4: 43 96% 56%;
-    --chart-5: 0 72% 51%;
+    /* Chart colors - refined palette */
+    --chart-1: 211 100% 50%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 262 83% 58%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
     
-    /* Sidebar - refined */
-    --sidebar-background: 220 20% 98%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 160 84% 39%;
+    /* Sidebar - clean and minimal */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-accent: 0 0% 95%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 92%;
+    --sidebar-ring: 211 100% 50%;
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
     
-    /* Emerald primary for dark */
-    --primary: 160 84% 45%;
+    /* Professional blue primary for dark */
+    --primary: 211 100% 55%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 215 20% 65%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
     
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 95%;
     
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 160 84% 45%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 211 100% 55%;
     
-    --chart-1: 160 84% 45%;
-    --chart-2: 217 91% 60%;
-    --chart-3: 280 68% 60%;
-    --chart-4: 43 96% 56%;
-    --chart-5: 0 72% 51%;
+    --chart-1: 211 100% 55%;
+    --chart-2: 142 71% 50%;
+    --chart-3: 262 83% 63%;
+    --chart-4: 38 92% 55%;
+    --chart-5: 0 84% 65%;
     
-    --sidebar-background: 224 71% 4%;
-    --sidebar-foreground: 213 31% 91%;
-    --sidebar-primary: 160 84% 45%;
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 211 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 28% 17%;
-    --sidebar-accent-foreground: 213 31% 91%;
-    --sidebar-border: 215 28% 17%;
-    --sidebar-ring: 160 84% 45%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 211 100% 55%;
   }
 }
 
@@ -106,18 +106,21 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    letter-spacing: -0.011em;
   }
 }
 
-/* Custom scrollbar */
+/* Refined scrollbar - Apple style */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -125,103 +128,122 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.15);
+  background: hsl(var(--muted-foreground) / 0.2);
   border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: hsl(var(--muted-foreground) / 0.35);
+  background-clip: content-box;
 }
 
 /* Hide scrollbar for mobile */
 @media (max-width: 768px) {
   ::-webkit-scrollbar {
-    width: 3px;
-    height: 3px;
+    width: 4px;
+    height: 4px;
   }
 }
 
-/* Improved focus styles */
+/* Improved focus styles - Apple-like ring */
 @layer utilities {
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
 
-/* Premium card effects */
+/* Premium card effects - Apple style */
 @layer components {
   .card-hover {
-    @apply transition-all duration-500 ease-out hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1;
+    @apply transition-all duration-300 ease-out hover:shadow-2xl hover:shadow-black/[0.08] hover:-translate-y-0.5;
   }
   
   .card-interactive {
-    @apply transition-all duration-200 cursor-pointer hover:bg-muted/50 active:scale-[0.99];
+    @apply transition-all duration-200 cursor-pointer hover:bg-muted/60 active:scale-[0.98];
   }
   
   .card-glass {
-    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-xl shadow-black/5;
+    @apply bg-white/80 dark:bg-black/60 backdrop-blur-2xl border border-black/[0.04] dark:border-white/[0.08] shadow-xl shadow-black/[0.04];
   }
   
   .card-elevated {
-    @apply bg-card border shadow-lg shadow-black/5 hover:shadow-xl hover:shadow-black/10 transition-shadow duration-300;
+    @apply bg-card border border-black/[0.04] shadow-lg shadow-black/[0.03] hover:shadow-xl hover:shadow-black/[0.06] transition-shadow duration-300;
+  }
+  
+  .card-apple {
+    @apply bg-card rounded-2xl border border-black/[0.04] dark:border-white/[0.06] shadow-sm hover:shadow-lg transition-all duration-300;
   }
 }
 
-/* Premium gradient backgrounds */
+/* Apple-inspired gradient backgrounds */
 @layer utilities {
   .bg-gradient-subtle {
-    @apply bg-gradient-to-br from-background via-background to-muted/50;
+    @apply bg-gradient-to-b from-background via-background to-muted/30;
   }
   
   .bg-gradient-radial {
-    background: radial-gradient(ellipse at top, hsl(var(--muted) / 0.5) 0%, transparent 50%);
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--primary) / 0.08), transparent);
   }
   
   .bg-hero-pattern {
     background-image: 
-      radial-gradient(at 40% 20%, hsl(var(--primary) / 0.08) 0px, transparent 50%),
-      radial-gradient(at 80% 0%, hsl(var(--accent) / 0.06) 0px, transparent 50%),
-      radial-gradient(at 0% 50%, hsl(var(--primary) / 0.05) 0px, transparent 50%);
+      radial-gradient(at 27% 37%, hsl(var(--primary) / 0.04) 0px, transparent 50%),
+      radial-gradient(at 97% 21%, hsl(var(--primary) / 0.03) 0px, transparent 50%),
+      radial-gradient(at 52% 99%, hsl(var(--primary) / 0.02) 0px, transparent 50%);
   }
   
   .bg-mesh {
     background-image: 
-      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.1) 0, transparent 50%),
-      radial-gradient(at 100% 0%, hsl(var(--accent) / 0.08) 0, transparent 50%),
-      radial-gradient(at 100% 100%, hsl(var(--primary) / 0.06) 0, transparent 50%);
+      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.06) 0, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(var(--primary) / 0.04) 0, transparent 50%);
+  }
+  
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.02;
   }
 }
 
-/* Gradient text - premium */
+/* Gradient text - Apple style */
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-blue {
+    @apply bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent;
   }
   
   .text-gradient-subtle {
-    @apply bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent;
+    @apply bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent;
   }
 }
 
-/* Premium glass effect */
+/* Premium glass effect - Apple style */
 @layer utilities {
   .glass {
-    @apply bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl border border-white/30 dark:border-slate-700/30;
+    @apply bg-white/70 dark:bg-black/50 backdrop-blur-2xl border border-black/[0.04] dark:border-white/[0.08];
   }
   
   .glass-subtle {
-    @apply bg-background/80 backdrop-blur-xl border border-border/50;
+    @apply bg-background/90 backdrop-blur-xl border border-border/60;
+  }
+  
+  .glass-nav {
+    @apply bg-white/80 dark:bg-black/60 backdrop-blur-2xl backdrop-saturate-150 border-b border-black/[0.04] dark:border-white/[0.06];
   }
 }
 
-/* Glow effects */
+/* Subtle glow effects */
 @layer utilities {
   .glow-primary {
-    box-shadow: 0 0 40px hsl(var(--primary) / 0.15), 0 0 80px hsl(var(--primary) / 0.1);
+    box-shadow: 0 0 60px hsl(var(--primary) / 0.1), 0 0 100px hsl(var(--primary) / 0.05);
   }
   
-  .glow-accent {
-    box-shadow: 0 0 40px hsl(var(--accent) / 0.15), 0 0 80px hsl(var(--accent) / 0.1);
+  .glow-sm {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.08);
   }
 }
 

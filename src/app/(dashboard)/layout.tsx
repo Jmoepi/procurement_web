@@ -23,12 +23,12 @@ export default async function DashboardLayout({
     .single();
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-background">
       <DashboardHeader user={user} profile={profile} />
       <div className="flex">
         <DashboardNav profile={profile} />
-        <main className="flex-1 p-4 lg:p-8 xl:p-10">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 p-6 lg:p-8">
+          <div className="mx-auto max-w-6xl">
             {children}
           </div>
         </main>

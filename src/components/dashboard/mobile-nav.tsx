@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   LayoutDashboard,
   FileText,
@@ -24,8 +23,6 @@ import {
   BarChart,
   Menu,
   Search,
-  Sparkles,
-  ChevronRight,
   Zap,
 } from "lucide-react";
 import type { Profile } from "@/types";
@@ -117,22 +114,19 @@ export function MobileNav({ profile }: MobileNavProps) {
           <span className="sr-only">Open menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[300px] p-0">
-        <SheetHeader className="p-6 pb-4 border-b bg-gradient-to-br from-primary/5 to-primary/10">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
-              <Search className="h-5 w-5 text-primary-foreground" />
+      <SheetContent side="left" className="w-[280px] p-0 border-r border-black/[0.04] dark:border-white/[0.06]">
+        <SheetHeader className="p-5 pb-4 border-b border-black/[0.04] dark:border-white/[0.06]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <Search className="h-4 w-4 text-primary-foreground" />
             </div>
-            <div>
-              <SheetTitle className="text-lg">Procurement Radar</SheetTitle>
-              <p className="text-xs text-muted-foreground">South Africa 🇿🇦</p>
-            </div>
+            <SheetTitle className="text-base font-semibold">Procurement Radar</SheetTitle>
           </div>
         </SheetHeader>
 
-        <div className="flex flex-col h-[calc(100vh-88px)]">
+        <div className="flex flex-col h-[calc(100vh-72px)]">
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
             {filteredItems.map((item, index) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
@@ -140,78 +134,50 @@ export function MobileNav({ profile }: MobileNavProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 group relative overflow-hidden",
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.98]"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
-                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                    isActive 
-                      ? "bg-primary-foreground/20" 
-                      : "bg-muted group-hover:bg-background"
-                  )}>
-                    <item.icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span>{item.title}</span>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary">
-                          {item.badge}
-                        </Badge>
+                  <item.icon className="h-4 w-4" />
+                  <span className="font-medium">{item.title}</span>
+                  {item.badge && (
+                    <Badge 
+                      variant="secondary" 
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 font-medium ml-auto",
+                        isActive && "bg-white/20 text-white border-0"
                       )}
-                    </div>
-                    <p className={cn(
-                      "text-xs truncate",
-                      isActive ? "text-primary-foreground/70" : "text-muted-foreground"
-                    )}>
-                      {item.description}
-                    </p>
-                  </div>
-                  <ChevronRight className={cn(
-                    "h-4 w-4 transition-transform",
-                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-50"
-                  )} />
+                    >
+                      {item.badge}
+                    </Badge>
+                  )}
                 </Link>
               );
             })}
           </nav>
 
           {/* Plan Info */}
-          <div className="p-4 border-t bg-gradient-to-t from-muted/50">
-            <div className="rounded-xl bg-background border p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                    <Zap className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold capitalize">{planName} Plan</p>
-                    <p className="text-xs text-muted-foreground">
-                      {planName === "enterprise" ? "Unlimited" : `${limits.sources} sources`}
-                    </p>
-                  </div>
+          <div className="p-3 border-t border-black/[0.04] dark:border-white/[0.06]">
+            <div className="rounded-xl bg-muted/40 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Zap className="h-4 w-4 text-primary" />
                 </div>
-                {planName !== "enterprise" && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-                    <Link href="/settings">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Upgrade
-                    </Link>
-                  </Button>
-                )}
+                <div>
+                  <p className="text-sm font-medium capitalize">{planName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {planName === "enterprise" ? "Unlimited" : `${limits.sources} sources`}
+                  </p>
+                </div>
               </div>
               {planName !== "enterprise" && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Usage</span>
-                    <span className="font-medium">70%</span>
-                  </div>
-                  <Progress value={70} className="h-1.5" />
-                </div>
+                <Button size="sm" variant="outline" className="w-full" asChild>
+                  <Link href="/settings">
+                    Upgrade
+                  </Link>
+                </Button>
               )}
             </div>
           </div>
