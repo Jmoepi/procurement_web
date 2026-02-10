@@ -1,8 +1,10 @@
 """Main daily crawler orchestrator."""
 import asyncio
 import argparse
+import logging
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -25,9 +27,36 @@ from .crawlers.soe import (
 from .crawlers.university import UniversityCrawler, UNIVERSITY_CONFIGS
 from .crawlers.metro import MetroCrawler, METRO_CONFIGS
 
-# Configure structured logging
-structlog.configure(
-    processors=[
+
+def setup_logging(verbose: bool = False) -> None:
+    """Configure structured logging with file and console output."""
+    # Create logs directory
+    logs_dir = Path(__file__).parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Log filename with timestamp
+    log_file = logs_dir / f"crawler_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    
+    # Set up standard logging handlers
+    log_level = logging.DEBUG if verbose else logging.INFO
+    
+    # Console handler (with colors)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(log_level)
+    
+    # File handler (JSON format for processing)
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)  # Always capture everything to file
+    
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    
+    # Configure structlog
+    # Shared processors for both handlers
+    shared_processors = [
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
@@ -36,13 +65,32 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer(colors=True),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
+    ]
+
+    structlog.configure(
+        processors=shared_processors + [
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+    
+    # Set formatters for handlers
+    console_formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.dev.ConsoleRenderer(colors=True),
+        foreign_pre_chain=shared_processors,
+    )
+    file_formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer(),
+        foreign_pre_chain=shared_processors,
+    )
+    
+    console_handler.setFormatter(console_formatter)
+    file_handler.setFormatter(file_formatter)
+    
+    structlog.get_logger().info("Logging initialized", log_file=str(log_file))
 
 logger = structlog.get_logger()
 
@@ -365,6 +413,9 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # Initialize logging first
+    setup_logging(args.verbose)
     
     # Validate settings
     if not settings.supabase_url or not settings.supabase_service_role_key:

@@ -65,3 +65,6 @@ ENV/
 .vscode/
 *.swp
 *.swo
+# Crawler logs (keep .gitkeep)
+crawler/logs/*.log
+*.log

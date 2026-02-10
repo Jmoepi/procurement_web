@@ -7,14 +7,25 @@ from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import httpx
+import httpcore
 import structlog
 from bs4 import BeautifulSoup
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from ..config import settings
 from ..models import CrawledTender, TenderCategory, TenderPriority
 
 logger = structlog.get_logger()
+
+# Exceptions worth retrying
+RETRYABLE_EXCEPTIONS = (
+    httpx.ConnectTimeout,
+    httpx.ConnectError,
+    httpx.ReadTimeout,
+    httpx.WriteTimeout,
+    httpcore.ConnectTimeout,
+    httpcore.ReadTimeout,
+)
 
 
 class BaseCrawler(ABC):
@@ -33,14 +44,23 @@ class BaseCrawler(ABC):
         self.categories = categories
         # Disable SSL verification for development (SA gov sites often have cert issues)
         self.client = httpx.AsyncClient(
-            timeout=settings.request_timeout,
+            timeout=httpx.Timeout(
+                connect=30.0,
+                read=60.0,
+                write=30.0,
+                pool=10.0,
+            ),
             follow_redirects=True,
             verify=False,  # Disable SSL verification for dev
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
                 "Accept-Language": "en-ZA,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate",  # Avoid issues with chunked encoding
+                "Connection": "keep-alive",
+                "Cache-Control": "no-cache",
             },
+            http2=False,  # Some gov sites don't support HTTP/2 well
         )
     
     async def __aenter__(self):
@@ -52,6 +72,7 @@ class BaseCrawler(ABC):
     @retry(
         stop=stop_after_attempt(settings.retry_attempts),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
     )
     async def fetch_page(self, url: str) -> Optional[str]:
         """Fetch a page with retry logic."""
@@ -59,7 +80,29 @@ class BaseCrawler(ABC):
             response = await self.client.get(url)
             response.raise_for_status()
             return response.text
-        except httpx.HTTPError as e:
+        except httpx.HTTPStatusError as e:
+            # Server errors (5xx) are logged but may indicate temporary issues
+            if e.response.status_code >= 500:
+                logger.warning(
+                    "Server error - site may be temporarily unavailable",
+                    url=url,
+                    status_code=e.response.status_code,
+                )
+            else:
+                logger.warning("HTTP error", url=url, status_code=e.response.status_code)
+            raise
+        except (httpcore.RemoteProtocolError, httpx.RemoteProtocolError) as e:
+            # Protocol errors (like 'multiple Transfer-Encoding headers')
+            logger.warning(
+                "Protocol error - site may have misconfigured server",
+                url=url,
+                error=str(e),
+            )
+            return None  # Don't retry protocol errors, they won't fix themselves
+        except RETRYABLE_EXCEPTIONS as e:
+            logger.warning("Connection issue - will retry", url=url, error=str(e))
+            raise
+        except Exception as e:
             logger.warning("Failed to fetch page", url=url, error=str(e))
             raise
     
