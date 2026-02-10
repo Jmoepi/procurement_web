@@ -18,9 +18,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.12'
-  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+  # Note: These are set at job/step level, not globally, to use environment secrets
 
 jobs:
   crawl:

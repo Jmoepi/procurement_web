@@ -65,6 +65,11 @@ ENV/
 .vscode/
 *.swp
 *.swo
+
 # Crawler logs (keep .gitkeep)
 crawler/logs/*.log
 *.log
+
+# Windows reserved names
+nul
+crawler/nul
