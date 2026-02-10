@@ -17,6 +17,7 @@ class ETenderCrawler(BaseCrawler):
     """Crawler for the eTender Portal (etenders.gov.za)."""
     
     PORTAL_URL = "https://www.etenders.gov.za"
+    API_URL = "https://www.etenders.gov.za/Home/PaginatedTenderOpportunities"
     
     def __init__(
         self,
@@ -32,19 +33,18 @@ class ETenderCrawler(BaseCrawler):
         )
     
     async def crawl(self) -> list[CrawledTender]:
-        """Crawl eTender portal for relevant tenders."""
+        """Crawl eTender portal for relevant tenders using the API."""
         tenders = []
         
         try:
-            # Search for each target keyword
-            search_terms = []
-            for cat in self.categories:
-                if cat in ["courier", "printing", "logistics", "stationery"]:
-                    search_terms.append(cat)
+            # Fetch all advertised tenders from the API
+            all_tenders = await self._fetch_tenders_from_api()
             
-            for term in search_terms:
-                page_tenders = await self._search_tenders(term)
-                tenders.extend(page_tenders)
+            # Filter by relevance to our target categories
+            for tender_data in all_tenders:
+                tender = self._parse_api_tender(tender_data)
+                if tender and self.is_relevant(tender.title, tender.description or ""):
+                    tenders.append(tender)
             
             # Deduplicate by reference number
             seen = set()
@@ -58,7 +58,8 @@ class ETenderCrawler(BaseCrawler):
             logger.info(
                 "eTender crawl complete",
                 source=self.source_name,
-                total_found=len(unique_tenders),
+                total_fetched=len(all_tenders),
+                relevant_found=len(unique_tenders),
             )
             
             return unique_tenders
@@ -67,79 +68,124 @@ class ETenderCrawler(BaseCrawler):
             logger.error("eTender crawl failed", error=str(e))
             raise
     
-    async def _search_tenders(self, search_term: str) -> list[CrawledTender]:
-        """Search for tenders matching a term."""
-        tenders = []
+    async def _fetch_tenders_from_api(self) -> list[dict]:
+        """Fetch tenders from the eTenders API."""
+        all_tenders = []
+        start = 0
+        page_size = 100  # Fetch 100 at a time
+        max_pages = 10   # Safety limit
         
-        # eTender uses a complex ASP.NET form, simplified approach
-        search_url = f"{self.PORTAL_URL}/Home/opportunities"
+        for page in range(max_pages):
+            try:
+                params = {
+                    'draw': page + 1,
+                    'start': start,
+                    'length': page_size,
+                    'status': 1,  # 1 = advertised/published
+                }
+                
+                # Add AJAX headers
+                self.client.headers.update({
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Referer': f'{self.PORTAL_URL}/Home/opportunities',
+                })
+                
+                response = await self.client.get(self.API_URL, params=params)
+                response.raise_for_status()
+                
+                data = response.json()
+                records = data.get('data', [])
+                
+                if not records:
+                    break
+                
+                all_tenders.extend(records)
+                
+                # Check if we've fetched all records
+                total = data.get('recordsTotal', 0)
+                if start + page_size >= total:
+                    break
+                
+                start += page_size
+                
+                logger.debug(
+                    "Fetched tender page",
+                    page=page + 1,
+                    records=len(records),
+                    total=total,
+                )
+                
+            except Exception as e:
+                logger.warning("Failed to fetch tender page", page=page, error=str(e))
+                break
         
+        logger.info("Total tenders fetched from API", count=len(all_tenders))
+        return all_tenders
+    
+    def _parse_api_tender(self, data: dict) -> Optional[CrawledTender]:
+        """Parse a tender from API response."""
         try:
-            html = await self.fetch_page(search_url)
-            if not html:
-                return tenders
+            title = data.get('description', '')
+            if not title:
+                return None
             
-            soup = BeautifulSoup(html, "lxml")
+            reference = data.get('tender_No', '')
+            issuer = data.get('organ_of_State', 'Government of South Africa')
+            category_str = data.get('category', '')
+            tender_type = data.get('type', '')
             
-            # Find tender listings
-            tender_rows = soup.select("table.table tbody tr")
-            
-            for row in tender_rows:
+            # Parse dates
+            closing_date = None
+            closing_str = data.get('closing_Date')
+            if closing_str:
                 try:
-                    tender = self._parse_tender_row(row, search_term)
-                    if tender and self.is_relevant(tender.title, tender.description or ""):
-                        tenders.append(tender)
-                except Exception as e:
-                    logger.debug("Failed to parse tender row", error=str(e))
-                    continue
+                    closing_date = datetime.fromisoformat(closing_str.replace('Z', '+00:00'))
+                except:
+                    pass
+            
+            published_date = None
+            published_str = data.get('date_Published')
+            if published_str:
+                try:
+                    published_date = datetime.fromisoformat(published_str.replace('Z', '+00:00'))
+                except:
+                    pass
+            
+            # Build tender URL
+            tender_id = data.get('id', '')
+            source_url = f"{self.PORTAL_URL}/Home/TenderDetails/{tender_id}" if tender_id else self.PORTAL_URL
+            
+            # Location
+            town = data.get('town', '')
+            suburb = data.get('surburb', '')
+            location = f"{suburb}, {town}".strip(', ') if suburb or town else None
+            
+            # Detect our category and priority
+            category = self.detect_category(title, category_str)
+            priority = self.detect_priority(title, category_str, closing_date)
+            
+            # Extract conditions/description
+            description = data.get('conditions', '')
+            
+            return CrawledTender(
+                title=title,
+                description=description[:500] if description else None,
+                reference_number=reference,
+                issuer=issuer,
+                source_url=source_url,
+                closing_date=closing_date,
+                published_date=published_date,
+                category=category,
+                priority=priority,
+                location=location,
+                source_id=self.source_id,
+                source_name=self.source_name,
+            )
             
         except Exception as e:
-            logger.warning("Search failed", search_term=search_term, error=str(e))
-        
-        return tenders
-    
-    def _parse_tender_row(self, row, search_term: str) -> Optional[CrawledTender]:
-        """Parse a tender from a table row."""
-        cells = row.select("td")
-        if len(cells) < 4:
+            logger.debug("Failed to parse API tender", error=str(e))
             return None
-        
-        # Extract data from cells
-        title_cell = cells[1]
-        title_link = title_cell.select_one("a")
-        
-        if not title_link:
-            return None
-        
-        title = self.clean_text(title_link.get_text())
-        detail_url = self.absolute_url(title_link.get("href", ""))
-        
-        # Check if relevant
-        if search_term.lower() not in title.lower():
-            return None
-        
-        # Extract other fields
-        reference = self.clean_text(cells[0].get_text()) if len(cells) > 0 else None
-        issuer = self.clean_text(cells[2].get_text()) if len(cells) > 2 else "Government of South Africa"
-        closing_str = self.clean_text(cells[3].get_text()) if len(cells) > 3 else None
-        
-        closing_date = self.parse_date(closing_str) if closing_str else None
-        
-        # Detect category and priority
-        category = self.detect_category(title)
-        priority = self.detect_priority(title, "", closing_date)
-        
-        return CrawledTender(
-            title=title,
-            reference_number=reference or self.extract_reference(title),
-            issuer=issuer,
-            source_url=detail_url,
-            closing_date=closing_date,
-            category=category,
-            priority=priority,
-            source_id=self.source_id,
-            source_name=self.source_name,
-        )
 
 
 class ProvincialTreasuryCrawler(BaseCrawler):
