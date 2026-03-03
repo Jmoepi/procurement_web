@@ -100,7 +100,7 @@ async def create_crawler_for_source(source: dict) -> Optional[object]:
     source_id = source["id"]
     source_name = source["name"]
     source_url = source["url"]
-    source_type = source.get("source_type", "other")
+    source_type = source.get("type") or source.get("source_type") or "other"
     categories = source.get("categories", ["courier", "printing"])
     
     # Match by source type or URL patterns
@@ -317,7 +317,9 @@ async def send_tenant_digests(tenant_id: str, tenders: list[CrawledTender]):
         
         for subscriber in subscribers:
             # Filter tenders by subscriber's categories
-            sub_categories = subscriber.get("categories", [])
+            prefs = subscriber.get("preferences") or {}
+            sub_categories = prefs.get("categories", [])
+            
             filtered_tenders = [
                 t for t in tenders
                 if t.category.value in sub_categories or "general" in sub_categories
@@ -387,6 +389,10 @@ async def run_daily_crawl(tenant_id: Optional[str] = None, dry_run: bool = False
         total_new_tenders=total_new,
     )
     
+    # Optional: still warn loudly if no sources so you notice in logs
+    if all(r.get("status") == "no_sources" for r in results):
+        logger.warning("No sources configured for any tenant. Nothing crawled.")
+
     return results
 
 
@@ -430,8 +436,10 @@ def main():
         run_daily_crawl(args.tenant_id, args.dry_run)
     )
     
-    # Exit with error if all failed
-    if all(r.get("status") not in ["success", "no_new_tenders"] for r in results):
+    # Exit with error only if there were real crawl attempts and all failed
+    ok_statuses = {"success", "no_new_tenders", "no_sources"}
+
+    if all(r.get("status") not in ok_statuses for r in results):
         sys.exit(1)
 
 
