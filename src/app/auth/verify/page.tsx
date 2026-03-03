@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Loader2, Mail, ArrowLeft, RefreshCw, CheckCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -19,7 +19,6 @@ export default function VerifyOTPPage() {
   const [verified, setVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
 
   useEffect(() => {
@@ -77,9 +76,7 @@ export default function VerifyOTPPage() {
   const handleVerify = async () => {
     const code = otp.join("");
     if (code.length !== 6) {
-      toast({
-        variant: "destructive",
-        title: "Invalid code",
+      toast.error("Invalid code", {
         description: "Please enter the complete 6-digit code.",
       });
       return;
@@ -96,8 +93,7 @@ export default function VerifyOTPPage() {
       if (error) throw error;
 
       setVerified(true);
-      toast({
-        title: "Email verified!",
+      toast.success("Email verified!", {
         description: "Your account has been verified successfully.",
       });
 
@@ -107,9 +103,7 @@ export default function VerifyOTPPage() {
         router.refresh();
       }, 1500);
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Verification failed",
+      toast.error("Verification failed", {
         description: error instanceof Error ? error.message : "Invalid or expired code. Please try again.",
       });
       setOtp(["", "", "", "", "", ""]);
@@ -132,14 +126,11 @@ export default function VerifyOTPPage() {
       if (error) throw error;
 
       setCountdown(60);
-      toast({
-        title: "Code resent",
+      toast.success("Code resent", {
         description: "A new verification code has been sent to your email.",
       });
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to resend",
+      toast.error("Failed to resend", {
         description: error instanceof Error ? error.message : "Could not resend code. Please try again.",
       });
     } finally {

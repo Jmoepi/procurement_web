@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Plus, Loader2 } from "lucide-react";
 
 interface AddSourceDialogProps {
@@ -40,7 +40,6 @@ export function AddSourceDialog({ tenantId }: AddSourceDialogProps) {
   const [tags, setTags] = useState("");
   
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,8 +58,7 @@ export function AddSourceDialog({ tenantId }: AddSourceDialogProps) {
 
       if (error) throw error;
 
-      toast({
-        title: "Source added",
+      toast.success("Source added", {
         description: "The source will be crawled in the next scheduled run.",
       });
 
@@ -72,11 +70,7 @@ export function AddSourceDialog({ tenantId }: AddSourceDialogProps) {
       setTags("");
       router.refresh();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add source",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to add source");
     } finally {
       setLoading(false);
     }
