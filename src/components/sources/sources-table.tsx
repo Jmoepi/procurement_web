@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { ExternalLink, MoreHorizontal, Trash2, Edit } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 import type { Source } from "@/types";
@@ -32,7 +32,6 @@ interface SourcesTableProps {
 export function SourcesTable({ sources }: SourcesTableProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
 
   const toggleEnabled = async (source: Source) => {
@@ -46,11 +45,7 @@ export function SourcesTable({ sources }: SourcesTableProps) {
       if (error) throw error;
       router.refresh();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update source",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to update source");
     } finally {
       setLoadingId(null);
     }
@@ -64,17 +59,12 @@ export function SourcesTable({ sources }: SourcesTableProps) {
       const { error } = await supabase.from("sources").delete().eq("id", id);
       if (error) throw error;
       
-      toast({
-        title: "Source deleted",
+      toast.success("Source deleted", {
         description: "The source has been removed.",
       });
       router.refresh();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete source",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to delete source");
     } finally {
       setLoadingId(null);
     }

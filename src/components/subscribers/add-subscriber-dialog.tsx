@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { toast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 interface AddSubscriberDialogProps {
@@ -60,20 +60,12 @@ export function AddSubscriberDialog({
     e.preventDefault()
     
     if (!email.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter an email address',
-        variant: 'destructive',
-      })
+      toast.error('Please enter an email address')
       return
     }
 
     if (selectedCategories.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one category',
-        variant: 'destructive',
-      })
+      toast.error('Please select at least one category')
       return
     }
 
@@ -103,8 +95,7 @@ export function AddSubscriberDialog({
         throw error
       }
 
-      toast({
-        title: 'Subscriber added',
+      toast.success('Subscriber added', {
         description: `${email} will now receive digest emails.`,
       })
 
@@ -114,11 +105,7 @@ export function AddSubscriberDialog({
       setSelectedCategories(['courier', 'printing'])
       router.refresh()
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add subscriber',
-        variant: 'destructive',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to add subscriber')
     } finally {
       setLoading(false)
     }

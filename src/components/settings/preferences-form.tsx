@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { Subscription, SubscriptionPreferences, TenderCategory } from "@/types";
 
@@ -31,7 +31,6 @@ export function PreferencesForm({ subscription }: PreferencesFormProps) {
   );
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
 
   const handleCategoryToggle = (category: TenderCategory) => {
@@ -54,18 +53,13 @@ export function PreferencesForm({ subscription }: PreferencesFormProps) {
 
       if (error) throw error;
 
-      toast({
-        title: "Preferences updated",
+      toast.success("Preferences updated", {
         description: "Your email preferences have been saved.",
       });
       
       router.refresh();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update preferences",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to update preferences");
     } finally {
       setLoading(false);
     }

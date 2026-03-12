@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, Mail, Lock, User, Check, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,6 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const router = useRouter();
-  const { toast } = useToast();
   const supabase = createClient();
   const searchParams = useSearchParams();
   const inviteToken = searchParams?.get("invite") ?? undefined;
@@ -82,11 +81,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         router.refresh();
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
-      });
+      toast.error(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setLoading(false);
     }

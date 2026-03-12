@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { toast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { Subscription } from '@/types/database'
 
@@ -53,17 +53,12 @@ export function SubscribersTable({ subscribers, tenantId }: SubscribersTableProp
 
       if (error) throw error
 
-      toast({
-        title: subscriber.is_active ? 'Subscriber paused' : 'Subscriber activated',
+      toast.success(subscriber.is_active ? 'Subscriber paused' : 'Subscriber activated', {
         description: `${subscriber.email} will ${subscriber.is_active ? 'no longer' : 'now'} receive digest emails.`,
       })
       router.refresh()
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update subscriber status',
-        variant: 'destructive',
-      })
+      toast.error('Failed to update subscriber status')
     } finally {
       setLoading(null)
     }
@@ -81,19 +76,14 @@ export function SubscribersTable({ subscribers, tenantId }: SubscribersTableProp
 
       if (error) throw error
 
-      toast({
-        title: 'Subscriber removed',
+      toast.success('Subscriber removed', {
         description: `${subscriberToDelete.email} has been removed from your subscribers.`,
       })
       setDeleteDialogOpen(false)
       setSubscriberToDelete(null)
       router.refresh()
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to remove subscriber',
-        variant: 'destructive',
-      })
+      toast.error('Failed to remove subscriber')
     } finally {
       setLoading(null)
     }
