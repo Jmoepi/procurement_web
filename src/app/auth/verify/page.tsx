@@ -87,23 +87,45 @@ export default function VerifyOTPPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      // Verify OTP with server
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Invalid or expired code');
+
+      // On success, create the user using stored credentials
+      const storedPassword = sessionStorage.getItem('signup_password');
+      const storedFullName = sessionStorage.getItem('signup_full_name') || '';
+      const storedInvite = sessionStorage.getItem('signup_invite_token') || undefined;
+      if (!storedPassword) throw new Error('Signup state missing. Please re-start signup.');
+
+      const { error: signUpErr } = await supabase.auth.signUp({
         email,
-        token: code,
-        type: "signup",
+        password: storedPassword,
+        options: {
+          data: {
+            full_name: storedFullName,
+            invite_token: storedInvite,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
-      if (error) throw error;
+      if (signUpErr) throw signUpErr;
 
       setVerified(true);
-      toast({
-        title: "Email verified!",
-        description: "Your account has been verified successfully.",
-      });
+      toast({ title: 'Email verified!', description: 'Your account has been created.' });
 
-      // Redirect to dashboard after a short delay
+      // clear temporary signup state
+      sessionStorage.removeItem('signup_password');
+      sessionStorage.removeItem('signup_full_name');
+      sessionStorage.removeItem('signup_invite_token');
+
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push('/dashboard');
         router.refresh();
       }, 1500);
     } catch (error) {
@@ -124,18 +146,16 @@ export default function VerifyOTPPage() {
     
     setResending(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
+      const res = await fetch('/api/auth/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Could not resend code');
 
       setCountdown(60);
-      toast({
-        title: "Code resent",
-        description: "A new verification code has been sent to your email.",
-      });
+      toast({ title: 'Code resent', description: 'A new verification code has been sent to your email.' });
     } catch (error) {
       toast({
         variant: "destructive",

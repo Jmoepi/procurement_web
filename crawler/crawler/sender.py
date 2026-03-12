@@ -1,6 +1,8 @@
 """Email sender using Resend API."""
+from __future__ import annotations
+
+import os
 from datetime import datetime
-from typing import Optional
 
 import resend
 import structlog
@@ -11,33 +13,62 @@ from .models import CrawledTender, DigestData
 logger = structlog.get_logger()
 
 
+def _get_resend_api_key() -> str:
+    # Prefer settings, fall back to env
+    key = getattr(settings, "resend_api_key", None) or os.getenv("RESEND_API_KEY")
+    if not key:
+        raise RuntimeError("Missing RESEND_API_KEY (set in settings or environment)")
+    return key
+
+
+def _get_from_email() -> str:
+    """
+    Support both names:
+    - RESEND_FROM_EMAIL (recommended)
+    - EMAIL_FROM (legacy/backward compatible)
+    """
+    val = (
+        getattr(settings, "resend_from_email", None)
+        or getattr(settings, "email_from", None)
+        or os.getenv("RESEND_FROM_EMAIL")
+        or os.getenv("EMAIL_FROM")
+    )
+    if not val:
+        raise RuntimeError(
+            "Missing sender email. Set RESEND_FROM_EMAIL (recommended) or EMAIL_FROM."
+        )
+    return val
+
+
 class EmailSender:
     """Send digest emails using Resend."""
-    
+
     def __init__(self):
-        resend.api_key = settings.resend_api_key
-        self.from_email = settings.email_from
-    
+        resend.api_key = _get_resend_api_key()
+        self.from_email = _get_from_email()
+
     async def send_digest(self, digest: DigestData) -> bool:
         """Send a digest email to a subscriber."""
         try:
             html_content = self._generate_html(digest)
-            
-            response = resend.Emails.send({
-                "from": self.from_email,
-                "to": [digest.subscriber_email],
-                "subject": f"🇿🇦 Procurement Radar: {len(digest.tenders)} New Tenders - {datetime.now().strftime('%d %b %Y')}",
-                "html": html_content,
-            })
-            
+
+            response = resend.Emails.send(
+                {
+                    "from": self.from_email,
+                    "to": [digest.subscriber_email],
+                    "subject": f"🇿🇦 Procurement Radar: {len(digest.tenders)} New Tenders - {datetime.now().strftime('%d %b %Y')}",
+                    "html": html_content,
+                }
+            )
+
             logger.info(
                 "Digest email sent",
                 to=digest.subscriber_email,
                 tender_count=len(digest.tenders),
-                email_id=response.get("id"),
+                email_id=(response or {}).get("id"),
             )
             return True
-            
+
         except Exception as e:
             logger.error(
                 "Failed to send digest email",
@@ -45,21 +76,25 @@ class EmailSender:
                 error=str(e),
             )
             return False
-    
+
     def _generate_html(self, digest: DigestData) -> str:
         """Generate HTML email content."""
         today = datetime.now().strftime("%A, %d %B %Y")
-        
+
         # Group tenders by priority
         urgent = [t for t in digest.tenders if t.priority.value == "urgent"]
         high = [t for t in digest.tenders if t.priority.value == "high"]
-        other = [t for t in digest.tenders if t.priority.value not in ["urgent", "high"]]
-        
+        other = [
+            t for t in digest.tenders if t.priority.value not in ["urgent", "high"]
+        ]
+
         # Generate tender sections
-        urgent_html = self._generate_tender_section(urgent, "🔥 Urgent Opportunities", "#dc2626")
+        urgent_html = self._generate_tender_section(
+            urgent, "🔥 Urgent Opportunities", "#dc2626"
+        )
         high_html = self._generate_tender_section(high, "⚡ High Priority", "#ea580c")
         other_html = self._generate_tender_section(other, "📋 Other Tenders", "#16a34a")
-        
+
         return f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -80,7 +115,7 @@ class EmailSender:
                             <p style="margin: 10px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">Daily Tender Digest</p>
                         </td>
                     </tr>
-                    
+
                     <!-- Greeting -->
                     <tr>
                         <td style="padding: 30px 40px;">
@@ -88,12 +123,12 @@ class EmailSender:
                                 Good morning{f', {digest.subscriber_name}' if digest.subscriber_name else ''}!
                             </p>
                             <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                                Here's your daily tender digest for <strong>{today}</strong>. 
+                                Here's your daily tender digest for <strong>{today}</strong>.
                                 We found <strong style="color: #16a34a;">{len(digest.tenders)} new opportunities</strong> matching your criteria.
                             </p>
                         </td>
                     </tr>
-                    
+
                     <!-- Summary Stats -->
                     <tr>
                         <td style="padding: 0 40px 30px;">
@@ -117,22 +152,22 @@ class EmailSender:
                             </table>
                         </td>
                     </tr>
-                    
+
                     <!-- Tender Sections -->
                     {urgent_html}
                     {high_html}
                     {other_html}
-                    
+
                     <!-- CTA -->
                     <tr>
                         <td style="padding: 30px 40px; text-align: center;">
-                            <a href="{settings.app_base_url}/tenders" 
+                            <a href="{settings.app_base_url}/tenders"
                                style="display: inline-block; background-color: #16a34a; color: #ffffff; padding: 14px 28px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 8px;">
                                 View All Tenders →
                             </a>
                         </td>
                     </tr>
-                    
+
                     <!-- Footer -->
                     <tr>
                         <td style="padding: 30px 40px; background-color: #f9fafb; text-align: center; border-top: 1px solid #e5e7eb;">
@@ -156,19 +191,19 @@ class EmailSender:
 </body>
 </html>
 """
-    
+
     def _generate_tender_section(
-        self, 
-        tenders: list[CrawledTender], 
+        self,
+        tenders: list[CrawledTender],
         title: str,
         color: str,
     ) -> str:
         """Generate HTML for a tender section."""
         if not tenders:
             return ""
-        
+
         tender_rows = ""
-        for tender in tenders[:10]:  # Limit to 10 per section
+        for tender in tenders[:10]:
             closing = ""
             if tender.closing_date:
                 days = (tender.closing_date - datetime.now()).days
@@ -180,9 +215,14 @@ class EmailSender:
                     closing = f'<span style="color: #ea580c;">{days} days left</span>'
                 else:
                     closing = f'{tender.closing_date.strftime("%d %b %Y")}'
-            
-            category_badge = f'<span style="display: inline-block; padding: 2px 8px; background-color: #e0f2fe; color: #0369a1; font-size: 10px; border-radius: 4px; text-transform: uppercase;">{tender.category.value.replace("_", " ")}</span>'
-            
+
+            category_badge = (
+                '<span style="display: inline-block; padding: 2px 8px; background-color: #e0f2fe; '
+                'color: #0369a1; font-size: 10px; border-radius: 4px; text-transform: uppercase;">'
+                f'{tender.category.value.replace("_", " ")}'
+                "</span>"
+            )
+
             tender_rows += f"""
             <tr>
                 <td style="padding: 15px; border-bottom: 1px solid #e5e7eb;">
@@ -199,11 +239,11 @@ class EmailSender:
                 </td>
             </tr>
             """
-        
+
         more_text = ""
         if len(tenders) > 10:
             more_text = f'<tr><td style="padding: 15px; text-align: center; color: #6b7280; font-size: 12px;">... and {len(tenders) - 10} more</td></tr>'
-        
+
         return f"""
         <tr>
             <td style="padding: 0 40px 20px;">
@@ -217,5 +257,4 @@ class EmailSender:
         """
 
 
-# Global email sender instance
 email_sender = EmailSender()

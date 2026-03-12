@@ -2,7 +2,6 @@ name: Daily Tender Crawler
 
 on:
   schedule:
-    # Run at 07:00 SAST (05:00 UTC) every day
     - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
@@ -18,7 +17,6 @@ on:
 
 env:
   PYTHON_VERSION: '3.12'
-  # Note: These are set at job/step level, not globally, to use environment secrets
 
 jobs:
   crawl:
@@ -56,12 +54,12 @@ jobs:
           if [ -n "$SUPABASE_URL" ]; then echo "✓ SUPABASE_URL is set"; else echo "✗ SUPABASE_URL is NOT set"; fi
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then echo "✓ SUPABASE_SERVICE_ROLE_KEY is set"; else echo "✗ SUPABASE_SERVICE_ROLE_KEY is NOT set"; fi
           if [ -n "$RESEND_API_KEY" ]; then echo "✓ RESEND_API_KEY is set"; else echo "✗ RESEND_API_KEY is NOT set"; fi
-          if [ -n "$EMAIL_FROM" ]; then echo "✓ EMAIL_FROM is set"; else echo "✗ EMAIL_FROM is NOT set"; fi
+          if [ -n "$RESEND_FROM_EMAIL" ]; then echo "✓ RESEND_FROM_EMAIL is set"; else echo "✗ RESEND_FROM_EMAIL is NOT set"; fi
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
 
       - name: Run crawler
         working-directory: ./crawler
@@ -69,7 +67,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
         run: |
           ARGS=""
           if [ -n "${{ inputs.tenant_id }}" ]; then
@@ -101,13 +99,11 @@ jobs:
         with:
           script: |
             const message = `🚨 Daily Tender Crawler Failed!
-            
+
             Workflow: ${context.workflow}
             Run: ${context.runNumber}
             Repository: ${context.repo.owner}/${context.repo.repo}
-            
+
             Please check the logs: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            
+
             console.log(message);
-            
-            // Could add Slack/Discord notification here

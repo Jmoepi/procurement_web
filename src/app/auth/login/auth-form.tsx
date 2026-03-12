@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams?.get("invite") ?? undefined;
 
   const passwordStrength = getPasswordStrength(password);
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -50,28 +52,23 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
+        // Request server to generate and send OTP. We'll store password locally until verification.
+        const res = await fetch('/api/auth/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, full_name: fullName }),
         });
 
-        if (error) throw error;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Failed to request verification code');
 
-        // Store email for OTP verification page
-        sessionStorage.setItem("verification_email", email);
-        
-        toast({
-          title: "Verification code sent!",
-          description: "Please check your email for the 6-digit code.",
-        });
+        // Store email/password/fullName/inviteToken temporarily in sessionStorage until verification
+        sessionStorage.setItem('verification_email', email);
+        sessionStorage.setItem('signup_password', password);
+        sessionStorage.setItem('signup_full_name', fullName);
+        if (inviteToken) sessionStorage.setItem('signup_invite_token', inviteToken);
 
-        // Redirect to OTP verification page
+        toast({ title: 'Verification code sent!', description: 'Please check your email for the 6-digit code.' });
         router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
