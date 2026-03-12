@@ -13,8 +13,18 @@ import {
   API_ERRORS,
 } from "@/lib/api-errors";
 import { requireAuth } from "@/lib/api-auth";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
+import { normalizeDigestStatus } from "@/lib/digests";
 
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
+
+function getSupabaseAdmin() {
+  const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
+
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,10 +48,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0");
     const status = searchParams.get("status"); // success, fail, pending
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = getSupabaseAdmin();
 
     let query = supabase
       .from("digest_runs")
@@ -67,7 +74,10 @@ export async function GET(request: NextRequest) {
     }
 
     const responseData = createSuccessResponse({
-      digests: digests || [],
+      digests: (digests || []).map((digest) => ({
+        ...digest,
+        status: normalizeDigestStatus(digest.status),
+      })),
       pagination: {
         total: count || 0,
         limit,
@@ -104,10 +114,7 @@ export async function POST(request: NextRequest) {
     const { auth, response } = await requireAuth(request);
     if (response) return response;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = getSupabaseAdmin();
 
     // Check if a digest is already pending
     const { data: pendingDigest } = await supabase
@@ -127,12 +134,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create digest run record
+    const today = new Date().toISOString().slice(0, 10);
     const { data: newDigest, error: insertError } = await supabase
       .from("digest_runs")
       .insert({
         tenant_id: auth!.tenantId,
+        run_date: today,
+        tenders_found: 0,
+        emails_sent: 0,
         status: "pending",
         error_message: null,
+        metadata: {
+          manual_triggered: true,
+          triggered_at: new Date().toISOString(),
+          triggered_by: auth!.userId,
+        },
       })
       .select()
       .single();
@@ -151,7 +167,10 @@ export async function POST(request: NextRequest) {
     // e.g., queue.enqueue('send_digest', { tenantId: auth.tenantId, digestId: newDigest.id })
 
     const responseData = createSuccessResponse({
-      digest: newDigest,
+      digest: {
+        ...newDigest,
+        status: normalizeDigestStatus(newDigest.status),
+      },
       message: "Digest send triggered. Check back soon for results.",
     });
 

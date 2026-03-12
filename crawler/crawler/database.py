@@ -217,6 +217,8 @@ class Database:
             self.client.table("sources").update({
                 "last_crawled_at": datetime.utcnow().isoformat(),
                 "last_crawl_status": "success" if success else "failed",
+                "crawl_success_rate": round(new_rate, 1),
+                "tenders_found": current_tenders + tenders_found,
                 "metadata": metadata,
             }).eq("id", source_id).execute()
             
@@ -269,12 +271,14 @@ class Database:
     ):
         """Update digest run status."""
         data = {
-            "status": "success" if status == "completed" else status,
+            "status": "success" if status in {"completed", "success"} else status,
             "finished_at": datetime.utcnow().isoformat(),
             "emails_sent": emails_sent,
         }
         if error_message:
             data["error_message"] = error_message
+            data["status"] = "fail"
+        elif data["status"] == "failed":
             data["status"] = "fail"
         
         self.client.table("digest_runs").update(data).eq("id", digest_id).execute()

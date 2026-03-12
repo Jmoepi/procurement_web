@@ -1,6 +1,7 @@
+import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
-import { TendersTable } from "@/components/tenders/tenders-table";
 import { TendersFilters } from "@/components/tenders/tenders-filters";
+import { TendersTable } from "@/components/tenders/tenders-table";
 import type { Tender } from "@/types";
 
 interface TendersPageProps {
@@ -9,6 +10,7 @@ interface TendersPageProps {
     priority?: string;
     search?: string;
     expired?: string;
+    closing_soon?: string;
     page?: string;
   }>;
 }
@@ -16,63 +18,97 @@ interface TendersPageProps {
 export default async function TendersPage({ searchParams }: TendersPageProps) {
   const params = await searchParams;
   const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("tenant_id")
     .eq("id", user?.id ?? "")
     .single();
 
-  // Build query with filters
   let query = supabase
     .from("tenders")
     .select("*, source:sources(name, url)", { count: "exact" })
     .eq("tenant_id", profile?.tenant_id ?? "")
     .order("first_seen", { ascending: false });
 
-  // Apply filters
   if (params.category && params.category !== "all") {
     query = query.eq("category", params.category);
   }
+
   if (params.priority && params.priority !== "all") {
     query = query.eq("priority", params.priority);
   }
-  if (params.expired !== "true") {
+
+  if (params.closing_soon === "true") {
+    query = query.eq("expired", false).gte("days_remaining", 0).lte("days_remaining", 7);
+  } else if (params.expired !== "true") {
     query = query.eq("expired", false);
   }
+
   if (params.search) {
     query = query.ilike("title", `%${params.search}%`);
   }
 
-  // Pagination
-  const page = parseInt(params.page ?? "1");
+  const page = Math.max(1, parseInt(params.page ?? "1"));
   const pageSize = 20;
   const offset = (page - 1) * pageSize;
   query = query.range(offset, offset + pageSize - 1);
 
-  const { data: tenders, count } = await query as { 
-    data: (Tender & { source: { name: string; url: string } | null })[] | null; 
+  const { data: tenders, count } = (await query) as {
+    data: (Tender & { source: { name: string; url: string } | null })[] | null;
     count: number | null;
   };
 
-  const totalPages = Math.ceil((count ?? 0) / pageSize);
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
+  const activeFilterCount = [
+    params.category && params.category !== "all" ? params.category : null,
+    params.priority && params.priority !== "all" ? params.priority : null,
+    params.search ? params.search : null,
+    params.expired === "true" ? "expired" : null,
+    params.closing_soon === "true" ? "closing_soon" : null,
+  ].filter(Boolean).length;
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Tenders</h1>
-        <p className="text-muted-foreground">
-          Browse and filter all tender opportunities
-        </p>
+      <div className="relative overflow-hidden rounded-[30px] border border-border/60 bg-background/80 p-5 shadow-sm backdrop-blur-sm sm:p-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.14),transparent_45%)]" />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Tender intelligence
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+              Tenders
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Search, filter, and act on the opportunities most likely to matter
+              to your team.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+              {(count ?? 0).toLocaleString()} opportunities
+            </Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+              Page {page} of {totalPages}
+            </Badge>
+            {activeFilterCount > 0 && (
+              <Badge className="rounded-full px-3 py-1 text-xs font-medium">
+                {activeFilterCount} active filter{activeFilterCount === 1 ? "" : "s"}
+              </Badge>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Filters */}
       <TendersFilters />
 
-      {/* Results */}
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-[28px] border border-border/60 bg-background/80 shadow-sm">
         <TendersTable
           tenders={tenders ?? []}
           totalCount={count ?? 0}

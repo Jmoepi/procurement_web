@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,15 +38,104 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const desktopSearchRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+
+  const openSearch = () => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      setSearchOpen(false);
+      requestAnimationFrame(() => {
+        desktopSearchRef.current?.focus();
+        desktopSearchRef.current?.select();
+      });
+      return;
+    }
+
+    setSearchOpen(true);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const query = searchQuery.trim();
+    const target = query ? `/tenders?search=${encodeURIComponent(query)}` : "/tenders";
+
+    router.push(target);
+    setSearchOpen(false);
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
   };
+
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (searchOpen) {
+      requestAnimationFrame(() => {
+        mobileSearchRef.current?.focus();
+        mobileSearchRef.current?.select();
+      });
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget =
+        target?.isContentEditable ||
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT";
+      const revealSearch = () => {
+        if (window.matchMedia("(min-width: 1024px)").matches) {
+          setSearchOpen(false);
+          requestAnimationFrame(() => {
+            desktopSearchRef.current?.focus();
+            desktopSearchRef.current?.select();
+          });
+          return;
+        }
+
+        setSearchOpen(true);
+      };
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        revealSearch();
+        return;
+      }
+
+      if (!isTypingTarget && event.key === "/") {
+        event.preventDefault();
+        revealSearch();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const planName = profile?.tenant?.plan || "starter";
 
@@ -68,11 +157,12 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
 
         {/* Center - Search (desktop) */}
         <div className="flex-1 max-w-xl mx-4 hidden lg:block">
-          <div className="relative group">
+          <form onSubmit={handleSearchSubmit} className="relative group">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
             <input
+              ref={desktopSearchRef}
               type="search"
-              placeholder="Search tenders, sources..."
+              placeholder="Search tenders and jump straight into action"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-10 rounded-xl border border-border/60 bg-muted/30 px-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:bg-background focus-visible:border-primary/30 transition-all duration-300"
@@ -81,7 +171,7 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
               <Command className="h-3 w-3 text-muted-foreground" />
               <span className="text-[10px] font-medium text-muted-foreground">K</span>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* Right side - Actions */}
@@ -91,7 +181,7 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
             variant="ghost" 
             size="icon" 
             className="lg:hidden h-9 w-9 rounded-xl hover:bg-muted/60"
-            onClick={() => setSearchOpen(true)}
+            onClick={openSearch}
           >
             <Search className="h-4 w-4" />
           </Button>
@@ -217,30 +307,31 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
       {/* Mobile search overlay */}
       {searchOpen && (
         <div className="absolute inset-0 z-50 bg-background lg:hidden">
-          <div className="flex items-center h-16 px-4 gap-2">
-            <div className="flex-1 relative">
+          <form onSubmit={handleSearchSubmit} className="flex items-center h-16 px-4 gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                ref={mobileSearchRef}
                 type="search"
                 placeholder="Search tenders..."
-                autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-10 rounded-xl border-0 bg-muted px-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
+            <Button type="submit" className="rounded-xl px-4">
+              Go
+            </Button>
             <Button 
               variant="ghost" 
+              type="button"
               size="icon"
               className="rounded-xl"
-              onClick={() => {
-                setSearchOpen(false);
-                setSearchQuery("");
-              }}
+              onClick={closeSearch}
             >
               <X className="h-5 w-5" />
             </Button>
-          </div>
+          </form>
         </div>
       )}
     </header>

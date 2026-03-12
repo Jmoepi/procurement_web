@@ -13,22 +13,23 @@ import {
   API_ERRORS,
 } from "@/lib/api-errors";
 import { requireAuth } from "@/lib/api-auth";
+import {
+  getDigestRecipientCount,
+  getDigestTenderCount,
+  normalizeDigestStatus,
+} from "@/lib/digests";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
 
 const DigestIdSchema = z.string().uuid();
 
 function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
 
-  if (!url || !key) {
-    throw new Error(
-      "Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)"
-    );
-  }
-
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
 }
 
 type TenderRow = {
@@ -108,7 +109,7 @@ export async function GET(
     const { data: digest, error: digestError } = await supabase
       .from("digest_runs")
       .select(
-        "id, tenant_id, run_date, status, started_at, finished_at, logs, tenders_included"
+        "id, tenant_id, run_date, status, tenders_found, emails_sent, started_at, finished_at, logs, error_message, metadata"
       )
       .eq("id", digestId)
       .eq("tenant_id", auth!.tenantId)
@@ -133,12 +134,20 @@ export async function GET(
       return toNextResponse(errorData, statusCode);
     }
 
-    // Extract tender IDs safely
-    const tenderIds: string[] = Array.isArray(digest.tenders_included)
-      ? digest.tenders_included.filter(
-          (x: unknown): x is string => typeof x === "string"
-        )
-      : [];
+    const metadata =
+      digest.metadata && typeof digest.metadata === "object"
+        ? (digest.metadata as Record<string, unknown>)
+        : {};
+
+    const metadataTenderIds = Array.isArray(metadata.tender_ids)
+      ? metadata.tender_ids
+      : Array.isArray(metadata.tenders_included)
+        ? metadata.tenders_included
+        : [];
+
+    const tenderIds = metadataTenderIds.filter(
+      (value): value is string => typeof value === "string"
+    );
 
     let tendersData: TenderRow[] = [];
 
@@ -187,10 +196,16 @@ export async function GET(
     }, {});
 
     const responseData = createSuccessResponse({
-      digest,
+      digest: {
+        ...digest,
+        status: normalizeDigestStatus(digest.status),
+      },
       tenders: tendersData,
       summary: {
-        total_tenders: tendersData.length,
+        total_tenders:
+          tendersData.length > 0 ? tendersData.length : getDigestTenderCount(digest),
+        total_recipients: getDigestRecipientCount(digest),
+        status: normalizeDigestStatus(digest.status),
         by_category: byCategory,
         by_priority: byPriority,
       },

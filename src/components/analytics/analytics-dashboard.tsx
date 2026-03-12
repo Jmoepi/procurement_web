@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { getDigestRecipientCount, getDigestTenderCount, isDigestSuccess } from '@/lib/digests'
 import { getCategoryColor, getPriorityColor } from '@/lib/utils'
 
 interface AnalyticsDashboardProps {
@@ -17,8 +18,11 @@ interface AnalyticsDashboardProps {
   }>
   digestStats: Array<{
     created_at: string
-    tender_count: number
-    recipient_count: number
+    tenders_found?: number
+    tender_count?: number
+    emails_sent?: number
+    recipient_count?: number
+    metadata?: Record<string, unknown>
     status: string
   }>
   totalTenders: number
@@ -52,7 +56,7 @@ export function AnalyticsDashboard({
     .map(([date, count]) => ({ date, count }))
 
   // Calculate digest success rate
-  const successfulDigests = digestStats.filter((d) => d.status === 'completed').length
+  const successfulDigests = digestStats.filter((d) => isDigestSuccess(d.status)).length
   const digestSuccessRate = digestStats.length > 0
     ? Math.round((successfulDigests / digestStats.length) * 100)
     : 100
@@ -288,13 +292,16 @@ export function AnalyticsDashboard({
                     <p className="text-xs text-muted-foreground">
                       {date.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })}
                     </p>
-                    <p className="text-lg font-bold">{digest.tender_count}</p>
+                    <p className="text-lg font-bold">{getDigestTenderCount(digest)}</p>
                     <p className="text-xs text-muted-foreground">tenders</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {getDigestRecipientCount(digest)} recipients
+                    </p>
                     <Badge
-                      variant={digest.status === 'completed' ? 'default' : 'destructive'}
+                      variant={isDigestSuccess(digest.status) ? 'default' : 'destructive'}
                       className="mt-2"
                     >
-                      {digest.status === 'completed' ? '✓' : '✗'}
+                      {isDigestSuccess(digest.status) ? '✓' : '✗'}
                     </Badge>
                   </div>
                 )

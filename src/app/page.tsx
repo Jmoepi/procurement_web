@@ -342,7 +342,7 @@ export default function LandingPage() {
                 },
                 {
                   q: "What payment methods do you accept?",
-                  a: "We accept all major credit cards, debit cards, and EFT payments for annual subscriptions via Stripe."
+                  a: "During the current rollout, paid upgrades are activated through assisted onboarding. Self-serve billing is planned, but not yet live in the product."
                 },
               ].map((faq, i) => (
                 <div key={i} className="group p-6 rounded-2xl bg-muted/30 hover:bg-muted/50 transition-colors">

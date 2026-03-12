@@ -9,6 +9,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import {
+  getDigestCompletedAt,
+  getDigestRecipientCount,
+  getDigestTenderCount,
+  normalizeDigestStatus,
+} from '@/lib/digests'
 import type { DigestRun } from '@/types/database'
 
 interface DigestHistoryProps {
@@ -17,14 +23,14 @@ interface DigestHistoryProps {
 
 export function DigestHistory({ digests }: DigestHistoryProps) {
   const getStatusBadge = (status: string) => {
+    const normalizedStatus = normalizeDigestStatus(status)
     const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
       pending: { variant: 'outline', label: 'Pending' },
-      sending: { variant: 'secondary', label: 'Sending' },
-      completed: { variant: 'default', label: 'Sent' },
-      failed: { variant: 'destructive', label: 'Failed' },
+      success: { variant: 'default', label: 'Sent' },
+      fail: { variant: 'destructive', label: 'Failed' },
     }
     
-    const config = statusConfig[status] || { variant: 'outline' as const, label: status }
+    const config = statusConfig[normalizedStatus] || { variant: 'outline' as const, label: normalizedStatus }
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
@@ -77,12 +83,12 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
                   day: 'numeric',
                 })}
               </TableCell>
-              <TableCell>{digest.tender_count}</TableCell>
-              <TableCell>{digest.recipient_count}</TableCell>
+              <TableCell>{getDigestTenderCount(digest)}</TableCell>
+              <TableCell>{getDigestRecipientCount(digest)}</TableCell>
               <TableCell>{getStatusBadge(digest.status)}</TableCell>
               <TableCell className="text-muted-foreground">
-                {digest.sent_at
-                  ? new Date(digest.sent_at).toLocaleString('en-ZA', {
+                {getDigestCompletedAt(digest)
+                  ? new Date(getDigestCompletedAt(digest)!).toLocaleString('en-ZA', {
                       hour: '2-digit',
                       minute: '2-digit',
                     })

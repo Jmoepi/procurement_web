@@ -5,12 +5,14 @@
  * - category?: string (courier, printing, both, other)
  * - priority?: string (high, medium, low)
  * - expired?: boolean
+ * - search?: string
+ * - closingSoon?: boolean
  * - sourceId?: string
  * - limit?: number (default: 20, max: 100)
  * - offset?: number (default: 0)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter";
@@ -22,6 +24,7 @@ import {
   formatZodErrors,
 } from "@/lib/api-errors";
 import { requireAuth } from "@/lib/api-auth";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
 // Initialize rate limiter: 100 requests per hour
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
@@ -31,6 +34,8 @@ const QuerySchema = z.object({
   category: z.enum(["courier", "printing", "both", "other"]).optional(),
   priority: z.enum(["high", "medium", "low"]).optional(),
   expired: z.boolean().optional(),
+  search: z.string().trim().min(1).max(160).optional(),
+  closingSoon: z.boolean().optional(),
   sourceId: z.string().uuid().optional(),
   limit: z.number().int().min(1).max(100).default(20),
   offset: z.number().int().min(0).default(0),
@@ -62,7 +67,13 @@ export async function GET(request: NextRequest) {
     const queryData = {
       category: searchParams.get("category"),
       priority: searchParams.get("priority"),
-      expired: searchParams.get("expired") === "true",
+      expired: searchParams.has("expired")
+        ? searchParams.get("expired") === "true"
+        : undefined,
+      search: searchParams.get("search") || undefined,
+      closingSoon: searchParams.has("closingSoon")
+        ? searchParams.get("closingSoon") === "true"
+        : undefined,
       sourceId: searchParams.get("sourceId"),
       limit: parseInt(searchParams.get("limit") || "20"),
       offset: parseInt(searchParams.get("offset") || "0"),
@@ -82,10 +93,10 @@ export async function GET(request: NextRequest) {
     const params: QueryParams = validation.data;
 
     // 4. Fetch data from Supabase
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
+    const supabase = createClient(url, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
 
     let query = supabase
       .from("tenders")
@@ -102,17 +113,18 @@ export async function GET(request: NextRequest) {
     if (params.sourceId) {
       query = query.eq("source_id", params.sourceId);
     }
-    if (params.expired !== undefined) {
-      if (params.expired) {
-        query = query.lt("closing_date", new Date().toISOString());
-      } else {
-        query = query.gte("closing_date", new Date().toISOString());
-      }
+    if (params.search) {
+      query = query.ilike("title", `%${params.search}%`);
+    }
+    if (params.closingSoon) {
+      query = query.eq("expired", false).gte("days_remaining", 0).lte("days_remaining", 7);
+    } else if (params.expired !== undefined) {
+      query = query.eq("expired", params.expired);
     }
 
     // Pagination
     const { data: tenders, count, error } = await query
-      .order("created_at", { ascending: false })
+      .order("first_seen", { ascending: false })
       .range(params.offset, params.offset + params.limit - 1);
 
     if (error) {

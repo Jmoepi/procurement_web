@@ -6,6 +6,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { API_ERRORS, createErrorResponse, toNextResponse } from "./api-errors";
+import { getSupabaseServerConfig } from "@/lib/supabase/config";
 
 export interface AuthContext {
   userId: string;
@@ -26,20 +27,16 @@ export async function verifyAuth(request: Request): Promise<AuthContext | null> 
 
     const token = authHeader.slice(7); // Remove "Bearer " prefix
 
-    // Verify token with Supabase
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { url, anonKey } = getSupabaseServerConfig();
+
+    const supabase = createClient(url, anonKey, {
+      auth: { persistSession: false },
+    });
 
     const {
       data: { user },
       error,
-    } = await supabase.auth.admin.getUserById(
-      // Extract user ID from token (this is a simplified approach)
-      // In production, fully verify the JWT signature
-      token
-    );
+    } = await supabase.auth.getUser(token);
 
     if (error || !user) {
       return null;

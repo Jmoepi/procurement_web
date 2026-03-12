@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes, randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import { sendTransactionalEmail } from "@/lib/email";
 
 function genToken() {
   try {
@@ -60,41 +61,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insert.error.message }, { status: 500 });
     }
 
-    // Attempt to send an email if configured (SENDGRID)
+    // Attempt to send an email if configured (Resend)
     let email_sent = false;
     try {
       const inviteUrlBase = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_VERCEL_URL ?? "";
       const inviteLink = inviteUrlBase ? `${inviteUrlBase.replace(/\/$/,"")}/auth/signup?invite=${token}` : null;
 
-      const sendgridKey = process.env.SENDGRID_API_KEY;
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-
-      if (sendgridKey && fromEmail && email && inviteLink) {
-        const payload = {
-          personalizations: [
-            {
-              to: [{ email }],
-              subject: `You're invited to join Procurement Radar`,
-            },
-          ],
-          from: { email: fromEmail },
-          content: [
-            {
-              type: 'text/plain',
-              value: `You have been invited to join Procurement Radar. Use this link to sign up:\n\n${inviteLink}\n\nIf you did not expect this, ignore this email.`,
-            },
-          ],
-        };
-
-        await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${sendgridKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
+      if (email && inviteLink) {
+        await sendTransactionalEmail({
+          to: email,
+          subject: "You're invited to join Procurement Radar",
+          text: `You have been invited to join Procurement Radar. Use this link to sign up:\n\n${inviteLink}\n\nIf you did not expect this, ignore this email.`,
         });
-
         email_sent = true;
       }
     } catch (e) {

@@ -21,22 +21,45 @@ CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
     new_tenant_id UUID;
+    invited_tenant_id UUID;
+    invite_token TEXT := NULLIF(NEW.raw_user_meta_data->>'invite_token', '');
+    assigned_role TEXT := 'admin';
 BEGIN
-    -- Create a new tenant for the user with 30-day free trial
-    INSERT INTO tenants (name, slug, trial_ends_at)
-    VALUES (
-        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-        LOWER(REPLACE(COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), ' ', '-')) || '-' || substr(NEW.id::text, 1, 8),
-        NOW() + INTERVAL '30 days'
-    )
-    RETURNING id INTO new_tenant_id;
+    IF invite_token IS NOT NULL THEN
+        SELECT tenant_id, role
+        INTO invited_tenant_id, assigned_role
+        FROM invites
+        WHERE token = invite_token
+          AND used = false
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1;
+
+        IF invited_tenant_id IS NULL THEN
+            RAISE EXCEPTION 'Invalid or expired invite token.';
+        END IF;
+
+        new_tenant_id := invited_tenant_id;
+
+        UPDATE invites
+        SET used = true
+        WHERE token = invite_token;
+    ELSE
+        -- Create a new tenant for self-serve signups with a 30-day free trial
+        INSERT INTO tenants (name, slug, trial_ends_at)
+        VALUES (
+            COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+            LOWER(REPLACE(COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), ' ', '-')) || '-' || substr(NEW.id::text, 1, 8),
+            NOW() + INTERVAL '30 days'
+        )
+        RETURNING id INTO new_tenant_id;
+    END IF;
     
     -- Create profile
     INSERT INTO profiles (id, tenant_id, role, full_name)
     VALUES (
         NEW.id,
         new_tenant_id,
-        'admin',
+        assigned_role::user_role,
         COALESCE(NEW.raw_user_meta_data->>'full_name', '')
     );
     

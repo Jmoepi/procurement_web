@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { getSupabaseServerConfig } from "@/lib/supabase/config";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,10 +11,11 @@ export async function GET(request: Request) {
   if (!code) return NextResponse.redirect(`${origin}/auth/login`);
 
   const cookieStore = await cookies();
+  const { url: supabaseUrl, anonKey } = getSupabaseServerConfig();
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    anonKey,
     {
       cookies: {
         get(name: string) {
@@ -29,7 +31,10 @@ export async function GET(request: Request) {
     }
   );
 
-  await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect(`${origin}/auth/login?error=callback_failed`);
+  }
 
   return NextResponse.redirect(`${origin}/dashboard`);
 }

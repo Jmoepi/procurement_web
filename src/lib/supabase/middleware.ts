@@ -1,42 +1,61 @@
-// Update session middleware for Next.js
-export async function updateSession(request: NextRequest) {
-  // Create an unmodified response
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
+import { getSupabaseServerConfig } from "@/lib/supabase/config";
+
+function createResponseClient(request: NextRequest) {
+  const { url, anonKey } = getSupabaseServerConfig();
+
   let supabaseResponse = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  const supabase = createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }: { name: string; value: string }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options?: CookieOptions }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(
+        cookiesToSet: {
+          name: string;
+          value: string;
+          options?: CookieOptions;
+        }[]
+      ) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+
+        supabaseResponse = NextResponse.next({ request });
+
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options);
+        });
       },
     },
-  );
+  });
 
-  // Refresh session if expired
+  return { supabase, supabaseResponse };
+}
+
+export async function updateSession(request: NextRequest) {
+  const { supabase, supabaseResponse } = createResponseClient(request);
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protected routes
-  const protectedPaths = ["/dashboard", "/tenders", "/sources", "/settings", "/digest-preview"];
+  const protectedPaths = [
+    "/dashboard",
+    "/tenders",
+    "/sources",
+    "/subscribers",
+    "/settings",
+    "/digest",
+    "/analytics",
+  ];
+
   const isProtectedPath = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -47,7 +66,6 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Auth routes redirect to dashboard if logged in
   const authPaths = ["/auth/login", "/auth/signup"];
   const isAuthPath = authPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
@@ -60,42 +78,6 @@ export async function updateSession(request: NextRequest) {
   return supabaseResponse;
 }
 
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
-
-export const createClient = (request: NextRequest) => {
-  // Create an unmodified response
-  let supabaseResponse = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  const supabase = createServerClient(
-    supabaseUrl!,
-    supabaseKey!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }: { name: string; value: string }) => 
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options?: CookieOptions }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    },
-  );
-
-  return supabaseResponse
-};
+export function createClient(request: NextRequest) {
+  return createResponseClient(request).supabaseResponse;
+}

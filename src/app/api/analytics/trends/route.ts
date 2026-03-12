@@ -1,12 +1,10 @@
 /**
- * GET /api/subscribers  - List email subscribers (paginated)
- * POST /api/subscribers - Create a new subscriber
+ * GET /api/analytics/trends - Tender trends over time
  */
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-
 import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter";
 import {
   createErrorResponse,
@@ -16,56 +14,39 @@ import {
   formatZodErrors,
 } from "@/lib/api-errors";
 import { requireAuth } from "@/lib/api-auth";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
 
-// If you want tighter control, swap to z.enum(["courier","printing","both"])
-const CreateSubscriberSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(1).max(255),
-  categories: z.array(z.string()).min(1),
-  is_active: z.boolean().optional().default(true),
+const QuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+  groupBy: z.enum(["day", "week", "month"]).default("day"),
 });
 
-// Strong typing for plan mapping (fixes TS7053 cleanly)
-const PlanSchema = z.enum(["starter", "pro", "enterprise"]);
-type Plan = z.infer<typeof PlanSchema>;
+type GroupBy = z.infer<typeof QuerySchema>["groupBy"];
 
-const MAX_SUBSCRIBERS: Record<Plan, number | null> = {
-  starter: 1,
-  pro: 20,
-  enterprise: null,
-};
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error("Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)");
+function getPeriodKey(date: Date, groupBy: GroupBy) {
+  if (groupBy === "month") {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 
-  return createClient(url, key, {
-    auth: { persistSession: false },
-  });
-}
+  if (groupBy === "week") {
+    const weekStart = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    );
+    const day = (weekStart.getUTCDay() + 6) % 7;
+    weekStart.setUTCDate(weekStart.getUTCDate() - day);
+    return weekStart.toISOString().slice(0, 10);
+  }
 
-function parsePagination(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const limitRaw = parseInt(searchParams.get("limit") || "20", 10);
-  const offsetRaw = parseInt(searchParams.get("offset") || "0", 10);
-
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20;
-  const offset = Number.isFinite(offsetRaw) ? Math.max(offsetRaw, 0) : 0;
-
-  return { limit, offset };
+  return date.toISOString().slice(0, 10);
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Rate limit
     const clientId = getClientIdentifier(request);
     const rateLimit = rateLimiter(clientId);
+
     if (!rateLimit.allowed) {
       const [errorData, statusCode] = createErrorResponse(
         API_ERRORS.RATE_LIMITED.code,
@@ -75,191 +56,124 @@ export async function GET(request: NextRequest) {
       return toNextResponse(errorData, statusCode);
     }
 
-    // Auth
     const { auth, response } = await requireAuth(request);
     if (response) return response;
 
-    const { limit, offset } = parsePagination(request);
-    const supabase = getSupabaseAdmin();
+    const parsed = QuerySchema.safeParse({
+      days: request.nextUrl.searchParams.get("days") ?? "30",
+      groupBy: request.nextUrl.searchParams.get("groupBy") ?? "day",
+    });
 
-    // IMPORTANT: Select only fields you want to expose
-    const { data: subscribers, count, error } = await supabase
-      .from("subscriptions")
-      .select("id,email,name,is_active,preferences,created_at,last_digest_sent_at", { count: "exact" })
+    if (!parsed.success) {
+      const [errorData, statusCode] = createErrorResponse(
+        API_ERRORS.VALIDATION_ERROR.code,
+        "Invalid query parameters",
+        API_ERRORS.VALIDATION_ERROR.statusCode,
+        formatZodErrors(parsed.error)
+      );
+      return toNextResponse(errorData, statusCode);
+    }
+
+    const { days, groupBy } = parsed.data;
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - days);
+
+    const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
+    const supabase = createClient(url, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
+
+    const { data: tenders, error } = await supabase
+      .from("tenders")
+      .select("created_at, category, priority")
       .eq("tenant_id", auth!.tenantId)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .gte("created_at", startDate.toISOString())
+      .lte("created_at", endDate.toISOString())
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Database error (GET /subscribers):", error);
+      console.error("Database error (GET /analytics/trends):", error);
       const [errorData, statusCode] = createErrorResponse(
         API_ERRORS.INTERNAL_ERROR.code,
-        "Failed to fetch subscribers",
+        "Failed to fetch trend data",
         API_ERRORS.INTERNAL_ERROR.statusCode
       );
       return toNextResponse(errorData, statusCode);
     }
 
+    const timelineMap = new Map<
+      string,
+      {
+        period: string;
+        total: number;
+        categories: Record<string, number>;
+        priorities: Record<string, number>;
+      }
+    >();
+
+    for (const tender of tenders ?? []) {
+      const period = getPeriodKey(new Date(tender.created_at), groupBy);
+
+      if (!timelineMap.has(period)) {
+        timelineMap.set(period, {
+          period,
+          total: 0,
+          categories: {},
+          priorities: {},
+        });
+      }
+
+      const entry = timelineMap.get(period)!;
+      const category = tender.category ?? "unknown";
+      const priority = tender.priority ?? "unknown";
+
+      entry.total += 1;
+      entry.categories[category] = (entry.categories[category] ?? 0) + 1;
+      entry.priorities[priority] = (entry.priorities[priority] ?? 0) + 1;
+    }
+
+    const timeline = Array.from(timelineMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period)
+    );
+
+    const peakEntry = timeline.reduce<(typeof timeline)[number] | null>(
+      (peak, entry) => {
+        if (!peak || entry.total > peak.total) {
+          return entry;
+        }
+        return peak;
+      },
+      null
+    );
+
     const responseData = createSuccessResponse({
-      subscribers: subscribers ?? [],
-      pagination: {
-        total: count ?? 0,
-        limit,
-        offset,
-        hasMore: (count ?? 0) > offset + limit,
+      metadata: {
+        days,
+        groupBy,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        total_tenders: tenders?.length ?? 0,
+      },
+      timeline,
+      summary: {
+        average_per_period:
+          timeline.length > 0
+            ? Number(
+                (
+                  timeline.reduce((sum, entry) => sum + entry.total, 0) /
+                  timeline.length
+                ).toFixed(1)
+              )
+            : 0,
+        peak_period: peakEntry?.period ?? null,
+        peak_count: peakEntry?.total ?? 0,
       },
     });
 
     return toNextResponse(responseData, 200);
-  } catch (err) {
-    console.error("API Error (GET /subscribers):", err);
-    const [errorData, statusCode] = createErrorResponse(
-      API_ERRORS.INTERNAL_ERROR.code,
-      "Internal server error",
-      API_ERRORS.INTERNAL_ERROR.statusCode
-    );
-    return toNextResponse(errorData, statusCode);
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Rate limit
-    const clientId = getClientIdentifier(request);
-    const rateLimit = rateLimiter(clientId);
-    if (!rateLimit.allowed) {
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.RATE_LIMITED.code,
-        "Too many requests",
-        API_ERRORS.RATE_LIMITED.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    // Auth
-    const { auth, response } = await requireAuth(request);
-    if (response) return response;
-
-    const supabase = getSupabaseAdmin();
-
-    // Parse + validate body
-    const body = await request.json().catch(() => null);
-    const validation = CreateSubscriberSchema.safeParse(body);
-
-    if (!validation.success) {
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.VALIDATION_ERROR.code,
-        "Invalid subscriber data",
-        API_ERRORS.VALIDATION_ERROR.statusCode,
-        formatZodErrors(validation.error)
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    const email = validation.data.email.trim().toLowerCase();
-    const name = validation.data.name.trim();
-    const categories = validation.data.categories;
-    const is_active = validation.data.is_active;
-
-    // Fetch tenant plan (safe parse + default)
-    const { data: tenant, error: tenantError } = await supabase
-      .from("tenants")
-      .select("plan")
-      .eq("id", auth!.tenantId)
-      .maybeSingle();
-
-    if (tenantError) {
-      console.error("Database error (tenant plan):", tenantError);
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.INTERNAL_ERROR.code,
-        "Failed to validate tenant plan",
-        API_ERRORS.INTERNAL_ERROR.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    const plan: Plan = PlanSchema.catch("starter").parse(tenant?.plan);
-    const maxSubscribers = MAX_SUBSCRIBERS[plan];
-
-    // Count existing subscribers (head:true avoids pulling rows)
-    const { count: subscriberCount, error: countError } = await supabase
-      .from("subscriptions")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", auth!.tenantId);
-
-    if (countError) {
-      console.error("Database error (subscriber count):", countError);
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.INTERNAL_ERROR.code,
-        "Failed to check subscriber limit",
-        API_ERRORS.INTERNAL_ERROR.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    if (maxSubscribers !== null && (subscriberCount ?? 0) >= maxSubscribers) {
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.CONFLICT.code,
-        `Maximum subscribers limit (${maxSubscribers}) reached for your plan (${plan})`,
-        API_ERRORS.CONFLICT.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    // Check if email already exists (use maybeSingle so "not found" isn't an error)
-    const { data: existing, error: existingError } = await supabase
-      .from("subscriptions")
-      .select("id")
-      .eq("tenant_id", auth!.tenantId)
-      .eq("email", email)
-      .maybeSingle();
-
-    if (existingError) {
-      console.error("Database error (existing subscriber check):", existingError);
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.INTERNAL_ERROR.code,
-        "Failed to check existing subscription",
-        API_ERRORS.INTERNAL_ERROR.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    if (existing?.id) {
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.CONFLICT.code,
-        "Email already subscribed",
-        API_ERRORS.CONFLICT.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    // Insert subscriber
-    const { data: newSubscriber, error: insertError } = await supabase
-      .from("subscriptions")
-      .insert({
-        tenant_id: auth!.tenantId,
-        email,
-        name,
-        preferences: { categories },
-        is_active,
-      })
-      .select("id,email,name,is_active,preferences,created_at,last_digest_sent_at")
-      .single();
-
-    if (insertError) {
-      console.error("Insert error (POST /subscribers):", insertError);
-      const [errorData, statusCode] = createErrorResponse(
-        API_ERRORS.INTERNAL_ERROR.code,
-        "Failed to create subscriber",
-        API_ERRORS.INTERNAL_ERROR.statusCode
-      );
-      return toNextResponse(errorData, statusCode);
-    }
-
-    const responseData = createSuccessResponse(newSubscriber);
-    return toNextResponse(responseData, 201);
-  } catch (err) {
-    console.error("API Error (POST /subscribers):", err);
+  } catch (error) {
+    console.error("API Error (GET /analytics/trends):", error);
     const [errorData, statusCode] = createErrorResponse(
       API_ERRORS.INTERNAL_ERROR.code,
       "Internal server error",

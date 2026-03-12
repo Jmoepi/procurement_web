@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
+import { sendTransactionalEmail } from "@/lib/email";
 
 function genCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -34,30 +35,13 @@ export async function POST(req: Request) {
 
     if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
 
-    // send via SendGrid if configured
+    // Send via Resend if configured
     try {
-      const sendgridKey = process.env.SENDGRID_API_KEY;
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_VERCEL_URL ?? '';
-
-      if (sendgridKey && fromEmail) {
-        const payload = {
-          personalizations: [{ to: [{ email }], subject: `Your verification code` }],
-          from: { email: fromEmail },
-          content: [
-            {
-              type: 'text/plain',
-              value: `Your verification code is: ${code}. It expires in 15 minutes.`,
-            },
-          ],
-        };
-
-        await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${sendgridKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
+      await sendTransactionalEmail({
+        to: email,
+        subject: "Your verification code",
+        text: `Your verification code is: ${code}. It expires in 15 minutes.`,
+      });
     } catch (e) {
       console.error('OTP email send error', e);
     }

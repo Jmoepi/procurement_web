@@ -6,7 +6,7 @@ export type CrawlFrequency = 'daily' | 'weekly';
 export type TenderCategory = 'courier' | 'printing' | 'both' | 'other';
 export type TenderPriority = 'high' | 'medium' | 'low';
 export type DocType = 'html' | 'pdf';
-export type DigestStatus = 'success' | 'fail' | 'pending';
+export type DigestStatus = 'success' | 'fail' | 'pending' | 'completed' | 'failed';
 export type PlanType = 'starter' | 'pro' | 'enterprise';
 
 export interface Tenant {
@@ -112,15 +112,20 @@ export interface DigestRun {
   tenant_id: string;
   run_date: string;
   status: DigestStatus;
-  tender_count: number;
-  recipient_count: number;
+  tenders_found: number;
+  emails_sent: number;
   started_at: string;
-  sent_at?: string;
   finished_at?: string;
   logs?: string;
   error_message?: string;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> & {
+    recipient_count?: number;
+  };
   created_at: string;
+  tender_count?: number;
+  recipient_count?: number;
+  sent_at?: string;
+  tenders_included?: string[];
 }
 
 export interface PlanLimits {

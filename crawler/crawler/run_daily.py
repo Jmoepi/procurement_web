@@ -342,11 +342,11 @@ async def send_tenant_digests(tenant_id: str, tenders: list[CrawledTender]):
                 sent_count += 1
         
         # Update digest run
-        await db.update_digest_run(digest_id, "completed")
+        await db.update_digest_run(digest_id, "success", sent_count)
         logger.info("Digests sent", count=sent_count, total_subscribers=len(subscribers))
         
     except Exception as e:
-        await db.update_digest_run(digest_id, "failed", str(e))
+        await db.update_digest_run(digest_id, "fail", error_message=str(e))
         logger.error("Digest sending failed", error=str(e))
         raise
 

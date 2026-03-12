@@ -1,12 +1,19 @@
 
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import {
+  getSupabaseServerConfig,
+  getSupabaseServiceRoleConfig,
+} from "@/lib/supabase/config";
 
 export const createClient = async () => {
   const cookieStore = await cookies();
+  const { url, anonKey } = getSupabaseServerConfig();
+
   return createServerClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
@@ -27,12 +34,9 @@ export const createClient = async () => {
 
 // Service-role client (uses service role key). Use carefully and only on trusted server code.
 export const createServiceClient = () => {
-  const url = process.env.SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  if (!url || !key) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set to create a service client');
-  }
+  const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
 
-  // createServerClient requires an options argument; pass an empty options object for service client
-  return createServerClient(url, key, {} as any);
+  return createSupabaseClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
 };
