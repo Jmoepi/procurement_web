@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "sonner";
+import { toast } from "@/lib/sonner";
 import { Loader2, Eye, EyeOff, Mail, Lock, User, Check, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 

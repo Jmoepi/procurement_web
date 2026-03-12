@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { toast } from "@/lib/sonner";
 import { Plus, Loader2 } from "lucide-react";
 
 interface AddSourceDialogProps {

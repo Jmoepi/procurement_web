@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { toast } from "@/lib/sonner";
 import { Loader2, Mail, ArrowLeft, RefreshCw, CheckCircle } from "lucide-react";
 import Link from "next/link";
 

@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { toast } from "@/lib/sonner";
 import { ExternalLink, MoreHorizontal, Trash2, Edit } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 import type { Source } from "@/types";

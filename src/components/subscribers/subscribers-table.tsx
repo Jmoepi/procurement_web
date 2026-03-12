@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { toast } from 'sonner'
+import { toast } from '@/lib/sonner'
 import { useRouter } from 'next/navigation'
 import type { Subscription } from '@/types/database'
 
