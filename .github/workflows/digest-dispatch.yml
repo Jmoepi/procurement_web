@@ -1,0 +1,76 @@
+name: Digest Dispatcher
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Maximum number of pending digest jobs to process'
+        required: false
+        default: '10'
+        type: string
+      stale_minutes:
+        description: 'Minutes before a running job is considered stale'
+        required: false
+        default: '30'
+        type: string
+      max_retries:
+        description: 'Maximum stale recovery retries before failing the job'
+        required: false
+        default: '2'
+        type: string
+      recover_only:
+        description: 'Only recover stale jobs without dispatching pending jobs'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  dispatch:
+    name: Dispatch Digest Jobs
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+
+    steps:
+      - name: Trigger digest dispatcher
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          DIGEST_JOB_SECRET: ${{ secrets.DIGEST_JOB_SECRET }}
+          INPUT_LIMIT: ${{ inputs.limit }}
+          INPUT_STALE_MINUTES: ${{ inputs.stale_minutes }}
+          INPUT_MAX_RETRIES: ${{ inputs.max_retries }}
+          INPUT_RECOVER_ONLY: ${{ inputs.recover_only }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_BASE_URL:-}" ]; then
+            echo "APP_BASE_URL secret is not configured"
+            exit 1
+          fi
+
+          if [ -z "${DIGEST_JOB_SECRET:-}" ]; then
+            echo "DIGEST_JOB_SECRET secret is not configured"
+            exit 1
+          fi
+
+          LIMIT="${INPUT_LIMIT:-10}"
+          STALE_MINUTES="${INPUT_STALE_MINUTES:-30}"
+          MAX_RETRIES="${INPUT_MAX_RETRIES:-2}"
+          RECOVER_ONLY="${INPUT_RECOVER_ONLY:-false}"
+
+          if [ "$RECOVER_ONLY" = "true" ]; then
+            BODY=$(printf '{"recoverOnly": true, "staleMinutes": %s, "maxRetries": %s}' "$STALE_MINUTES" "$MAX_RETRIES")
+          else
+            BODY=$(printf '{"limit": %s, "staleMinutes": %s, "maxRetries": %s}' "$LIMIT" "$STALE_MINUTES" "$MAX_RETRIES")
+          fi
+
+          echo "Dispatch payload: $BODY"
+
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "${APP_BASE_URL%/}/api/internal/digests/dispatch" \
+            --header "Content-Type: application/json" \
+            --header "Authorization: Bearer ${DIGEST_JOB_SECRET}" \
+            --data "$BODY"

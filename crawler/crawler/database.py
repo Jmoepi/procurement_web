@@ -71,7 +71,7 @@ class Database:
     ) -> list[dict]:
         """Get active subscribers for a tenant."""
         query = self.client.table("subscriptions").select(
-            "id, email, preferences"
+            "id, email, preferences, unsubscribe_token"
         ).eq("tenant_id", tenant_id).eq("is_active", True)
         
         response = query.execute()

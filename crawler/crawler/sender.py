@@ -80,6 +80,11 @@ class EmailSender:
     def _generate_html(self, digest: DigestData) -> str:
         """Generate HTML email content."""
         today = datetime.now().strftime("%A, %d %B %Y")
+        unsubscribe_url = (
+            f"{settings.app_base_url}/unsubscribe?token={digest.unsubscribe_token}"
+            if digest.unsubscribe_token
+            else f"{settings.app_base_url}/unsubscribe"
+        )
 
         # Group tenders by priority
         urgent = [t for t in digest.tenders if t.priority.value == "urgent"]
@@ -177,7 +182,7 @@ class EmailSender:
                             <p style="margin: 0; font-size: 12px;">
                                 <a href="{settings.app_base_url}/settings" style="color: #16a34a; text-decoration: none;">Manage Preferences</a>
                                 &nbsp;·&nbsp;
-                                <a href="{settings.app_base_url}/unsubscribe" style="color: #16a34a; text-decoration: none;">Unsubscribe</a>
+                                <a href="{unsubscribe_url}" style="color: #16a34a; text-decoration: none;">Unsubscribe</a>
                             </p>
                             <p style="margin: 20px 0 0; color: #9ca3af; font-size: 11px;">
                                 © {datetime.now().year} Procurement Radar SA. All rights reserved.

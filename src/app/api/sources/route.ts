@@ -14,7 +14,8 @@ import {
   API_ERRORS,
   formatZodErrors,
 } from "@/lib/api-errors";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAdmin, requireAuth } from "@/lib/api-auth";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
 
@@ -38,16 +39,9 @@ const MAX_SOURCES: Record<Plan, number | null> = {
 };
 
 function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
 
-  if (!url || !key) {
-    throw new Error(
-      "Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)"
-    );
-  }
-
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 }
 
 export async function GET(request: NextRequest) {
@@ -67,6 +61,8 @@ export async function GET(request: NextRequest) {
     // Auth
     const { auth, response } = await requireAuth(request);
     if (response) return response;
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return adminResponse;
 
     const supabase = getSupabaseAdmin();
 
@@ -120,6 +116,8 @@ export async function POST(request: NextRequest) {
     // Auth
     const { auth, response } = await requireAuth(request);
     if (response) return response;
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return adminResponse;
 
     // Validate body
     const body = await request.json().catch(() => null);

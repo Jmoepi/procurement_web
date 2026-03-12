@@ -1,254 +1,326 @@
-'use client'
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import type { Tender } from '@/types/database'
-import { getCategoryColor, getPriorityColor, formatDate, getDaysRemaining } from '@/lib/utils'
+import Link from "next/link";
+import {
+  ArrowRight,
+  Clock3,
+  Eye,
+  Mail,
+  Settings2,
+  Sparkles,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Tender } from "@/types/database";
+import { formatDate, getCategoryColor, getDaysRemaining, getPriorityColor } from "@/lib/utils";
 
 interface DigestPreviewProps {
-  tenders: Tender[]
-  tenantName: string
-  digestTime: string
+  tenders: Tender[];
+  tenantName: string;
+  digestTime: string;
+  recipientCount: number;
 }
 
-export function DigestPreview({ tenders, tenantName, digestTime }: DigestPreviewProps) {
-  const today = new Date().toLocaleDateString('en-ZA', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+export function DigestPreview({
+  tenders,
+  tenantName,
+  digestTime,
+  recipientCount,
+}: DigestPreviewProps) {
+  const todayLabel = new Date().toLocaleDateString("en-ZA", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
-  const highPriorityTenders = tenders.filter((t) => t.priority === 'high')
-  const closingSoonTenders = tenders.filter((t) => {
-    if (!t.closing_at) return false
-    const daysRemaining = getDaysRemaining(t.closing_at)
-    return daysRemaining >= 0 && daysRemaining <= 5
-  })
-  const newTenders = tenders.filter((t) => {
-    const createdAt = new Date(t.created_at)
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    return createdAt >= yesterday
-  })
+  const highPriorityTenders = tenders.filter((tender) => tender.priority === "high");
+  const closingSoonTenders = tenders.filter((tender) => {
+    if (!tender.closing_at) return false;
+    const daysRemaining = getDaysRemaining(tender.closing_at);
+    return daysRemaining >= 0 && daysRemaining <= 5;
+  });
 
   if (tenders.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>No Tenders for Today&apos;s Digest</CardTitle>
-          <CardDescription>
-            When new tenders are discovered, they&apos;ll appear here in the preview.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <svg
-              className="h-12 w-12 text-muted-foreground mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            <p className="text-muted-foreground">
-              The crawler will discover new tenders and include them in your next digest.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Digest scheduled for: {digestTime} SAST
-            </p>
+      <Card className="rounded-[30px] border-border/60 bg-background/85 shadow-sm">
+        <CardContent className="px-6 py-12 text-center sm:px-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Mail className="h-6 w-6" />
           </div>
+          <h2 className="mt-5 text-2xl font-semibold tracking-tight">
+            No tenders in today&apos;s preview
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
+            As soon as new opportunities are discovered, they will be staged here before
+            the next scheduled digest send.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+              Scheduled for {digestTime} SAST
+            </Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+              {recipientCount} active recipients
+            </Badge>
+          </div>
+          <Button className="mt-8" asChild>
+            <Link href="/settings">
+              Adjust digest settings
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Preview of the digest that will be sent at {digestTime} SAST
-          </p>
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[1.08fr,0.92fr]">
+        <Card className="rounded-[28px] border-border/60 bg-background/85 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Clock3 className="h-5 w-5 text-primary" />
+              Next digest run
+            </CardTitle>
+            <CardDescription>
+              Preview what is lined up before the scheduled send window.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <PreviewStat label="Send time" value={`${digestTime} SAST`} />
+              <PreviewStat label="Recipients" value={recipientCount} />
+              <PreviewStat label="Draft items" value={tenders.length} />
+            </div>
+            <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+              <p className="text-sm font-semibold">What this preview confirms</p>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                It shows the opportunities currently queued for {tenantName}, highlights
+                urgent items, and gives you a clean read on what recipients will see.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild>
+                <Link href="/tenders">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Review all tenders
+                </Link>
+              </Button>
+              <Button variant="outline" className="border-border/60" asChild>
+                <Link href="/settings">
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Manage preferences
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <SummaryCard
+            title="New tenders"
+            value={tenders.length}
+            detail="Included in the current preview"
+          />
+          <SummaryCard
+            title="High priority"
+            value={highPriorityTenders.length}
+            detail="Worth checking first"
+            accent="text-red-500"
+          />
+          <SummaryCard
+            title="Closing soon"
+            value={closingSoonTenders.length}
+            detail="Deadlines inside five days"
+            accent="text-orange-500"
+          />
         </div>
-        <Button variant="outline">
-          <svg
-            className="mr-2 h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-            />
-          </svg>
-          Send Test Digest
-        </Button>
       </div>
 
-      {/* Email Preview */}
-      <Card className="overflow-hidden">
-        <div className="bg-primary text-primary-foreground p-6">
-          <h2 className="text-2xl font-bold">🇿🇦 Procurement Radar SA</h2>
-          <p className="text-primary-foreground/80 mt-1">Daily Tender Digest</p>
+      <Card className="overflow-hidden rounded-[32px] border-border/60 bg-background/85 shadow-sm">
+        <div className="border-b border-border/60 bg-gradient-to-br from-primary/12 via-primary/5 to-transparent px-6 py-6 md:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Preview mode
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                Procurement Radar SA daily digest
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                Drafted for {todayLabel} with the strongest opportunities currently in queue.
+              </p>
+            </div>
+            <Badge className="rounded-full px-3 py-1 text-xs font-medium">
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              Preview only
+            </Badge>
+          </div>
         </div>
 
-        <CardContent className="p-6">
-          <div className="space-y-6">
-            {/* Header */}
+        <CardContent className="space-y-6 p-6 md:p-8">
+          <div className="rounded-[24px] border border-border/60 bg-muted/15 p-5">
+            <p className="text-lg font-semibold">Good day, {tenantName}</p>
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">
+              Here is the current digest draft. We found{" "}
+              <span className="font-semibold text-foreground">{tenders.length} opportunities</span>{" "}
+              matching your workspace criteria, including{" "}
+              <span className="font-semibold text-foreground">
+                {highPriorityTenders.length} high-priority items
+              </span>
+              .
+            </p>
+          </div>
+
+          {highPriorityTenders.length > 0 ? (
+            <DigestSection
+              title="High priority opportunities"
+              description="The strongest matches based on urgency and fit."
+              tenders={highPriorityTenders.slice(0, 5)}
+            />
+          ) : null}
+
+          {closingSoonTenders.length > 0 ? (
+            <DigestSection
+              title="Closing soon"
+              description="Items with deadlines that need attention quickly."
+              tenders={closingSoonTenders.slice(0, 5)}
+            />
+          ) : null}
+
+          <DigestSection
+            title="All draft tenders"
+            description="Everything currently queued for the next send."
+            tenders={tenders.slice(0, 10)}
+          />
+
+          {tenders.length > 10 ? (
+            <div className="rounded-[20px] border border-dashed border-border/60 bg-muted/10 p-4 text-center text-sm text-muted-foreground">
+              {tenders.length - 10} more tenders are queued and will appear in the full digest.
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-3 rounded-[24px] border border-border/60 bg-muted/15 p-5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-lg">Good morning, {tenantName}!</p>
-              <p className="text-muted-foreground mt-2">
-                Here&apos;s your daily tender digest for {today}. We found{' '}
-                <strong>{tenders.length} new opportunities</strong> matching your criteria.
-              </p>
+              Recipients are receiving this digest because they are active subscribers on
+              your workspace.
             </div>
-
-            <Separator />
-
-            {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 rounded-lg bg-muted">
-                <p className="text-2xl font-bold text-primary">{newTenders.length}</p>
-                <p className="text-sm text-muted-foreground">New Tenders</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted">
-                <p className="text-2xl font-bold text-red-600">{highPriorityTenders.length}</p>
-                <p className="text-sm text-muted-foreground">High Priority</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted">
-                <p className="text-2xl font-bold text-orange-600">{closingSoonTenders.length}</p>
-                <p className="text-sm text-muted-foreground">Closing Soon</p>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* High Priority Section */}
-            {highPriorityTenders.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <span className="text-red-500">🔥</span> High Priority Opportunities
-                </h3>
-                <div className="space-y-3">
-                  {highPriorityTenders.slice(0, 5).map((tender) => (
-                    <TenderItem key={tender.id} tender={tender} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Closing Soon Section */}
-            {closingSoonTenders.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <span className="text-orange-500">⏰</span> Closing Soon
-                </h3>
-                <div className="space-y-3">
-                  {closingSoonTenders.slice(0, 5).map((tender) => (
-                    <TenderItem key={tender.id} tender={tender} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* All Tenders */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <span>📋</span> All New Tenders
-              </h3>
-              <div className="space-y-3">
-                {tenders.slice(0, 10).map((tender) => (
-                  <TenderItem key={tender.id} tender={tender} />
-                ))}
-              </div>
-              {tenders.length > 10 && (
-                <p className="text-center text-muted-foreground mt-4">
-                  ... and {tenders.length - 10} more tenders
-                </p>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* Footer */}
-            <div className="text-center text-sm text-muted-foreground">
-              <p>
-                You&apos;re receiving this email because you&apos;re subscribed to Procurement Radar SA.
-              </p>
-              <p className="mt-2">
-                <a href="#" className="text-primary hover:underline">
-                  Manage preferences
-                </a>
-                {' · '}
-                <a href="#" className="text-primary hover:underline">
-                  View all tenders
-                </a>
-                {' · '}
-                <a href="#" className="text-primary hover:underline">
-                  Unsubscribe
-                </a>
-              </p>
-              <p className="mt-4">
-                © {new Date().getFullYear()} Procurement Radar SA. All rights reserved.
-              </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="border-border/60" asChild>
+                <Link href="/settings">Preferences</Link>
+              </Button>
+              <Button variant="outline" size="sm" className="border-border/60" asChild>
+                <Link href="/tenders">All tenders</Link>
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
+}
+
+function SummaryCard({
+  title,
+  value,
+  detail,
+  accent,
+}: {
+  title: string;
+  value: number;
+  detail: string;
+  accent?: string;
+}) {
+  return (
+    <Card className="rounded-[24px] border-border/60 bg-background/85 shadow-sm">
+      <CardContent className="p-5">
+        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <p className={`mt-2 text-3xl font-bold tracking-tight ${accent ?? ""}`}>{value}</p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PreviewStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-[20px] border border-border/60 bg-background/75 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-base font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function DigestSection({
+  title,
+  description,
+  tenders,
+}: {
+  title: string;
+  description: string;
+  tenders: Tender[];
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="space-y-3">
+        {tenders.map((tender) => (
+          <TenderItem key={tender.id} tender={tender} />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function TenderItem({ tender }: { tender: Tender }) {
-  const daysRemaining = tender.closing_at ? getDaysRemaining(tender.closing_at) : null
-  const issuer = (tender.metadata?.issuer as string) || tender.source?.name || 'Unknown'
-  const referenceNumber = (tender.metadata?.reference_number as string) || 'N/A'
-  const estimatedValue = tender.metadata?.estimated_value as number | undefined
-  
+  const daysRemaining = tender.closing_at ? getDaysRemaining(tender.closing_at) : null;
+  const issuer = (tender.metadata?.issuer as string) || tender.source?.name || "Unknown issuer";
+  const referenceNumber = (tender.metadata?.reference_number as string) || "N/A";
+  const estimatedValue = tender.metadata?.estimated_value as number | undefined;
+
   return (
-    <div className="p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+    <div className="rounded-[24px] border border-border/60 bg-background/80 p-4 shadow-sm">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm line-clamp-2">{tender.title}</h4>
-          <p className="text-xs text-muted-foreground mt-1">
-            {issuer} · Ref: {referenceNumber}
+        <div className="min-w-0 flex-1">
+          <h4 className="line-clamp-2 text-sm font-semibold leading-6">{tender.title}</h4>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {issuer} · Ref {referenceNumber}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <Badge className={getCategoryColor(tender.category)} variant="secondary">
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Badge className={`${getCategoryColor(tender.category)} rounded-full text-[10px] font-medium`}>
             {tender.category}
           </Badge>
-          <Badge className={getPriorityColor(tender.priority)} variant="secondary">
+          <Badge className={`${getPriorityColor(tender.priority)} rounded-full text-[10px] font-medium`}>
             {tender.priority}
           </Badge>
         </div>
       </div>
-      <div className="flex items-center justify-between mt-3 text-xs">
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className="text-muted-foreground">
-          Closes: {tender.closing_at ? formatDate(tender.closing_at) : 'No deadline'}
+          Closes {tender.closing_at ? formatDate(tender.closing_at) : "without a deadline"}
         </span>
-        {daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 7 && (
-          <span className={`font-medium ${daysRemaining <= 3 ? 'text-red-600' : 'text-orange-600'}`}>
-            {daysRemaining === 0 ? 'Closes today!' : `${daysRemaining} days left`}
+        {daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 7 ? (
+          <span className={daysRemaining <= 3 ? "font-semibold text-red-500" : "font-semibold text-orange-500"}>
+            {daysRemaining === 0 ? "Closes today" : `${daysRemaining} days left`}
           </span>
-        )}
-        {estimatedValue && (
-          <span className="font-medium">
-            R{estimatedValue.toLocaleString()}
-          </span>
-        )}
+        ) : null}
+        {estimatedValue ? (
+          <span className="font-semibold text-foreground">R{estimatedValue.toLocaleString()}</span>
+        ) : null}
       </div>
     </div>
-  )
+  );
 }

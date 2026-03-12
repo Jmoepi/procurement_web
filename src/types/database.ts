@@ -6,7 +6,7 @@ export type CrawlFrequency = 'daily' | 'weekly';
 export type TenderCategory = 'courier' | 'printing' | 'both' | 'other';
 export type TenderPriority = 'high' | 'medium' | 'low';
 export type DocType = 'html' | 'pdf';
-export type DigestStatus = 'success' | 'fail' | 'pending' | 'completed' | 'failed';
+export type DigestStatus = 'success' | 'fail' | 'pending' | 'running' | 'completed' | 'failed';
 export type PlanType = 'starter' | 'pro' | 'enterprise';
 
 export interface Tenant {

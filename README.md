@@ -78,6 +78,12 @@ RESEND_API_KEY=re_your_api_key
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+APP_BASE_URL=http://localhost:3000
+
+# Digest jobs
+DIGEST_JOB_SECRET=replace-with-a-long-random-secret
+DIGEST_JOB_STALE_MINUTES=30
+DIGEST_JOB_MAX_RETRIES=2
 ```
 
 ### 3. Database Setup
@@ -257,12 +263,16 @@ Add these secrets to your repository:
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 RESEND_API_KEY
+APP_BASE_URL
+DIGEST_JOB_SECRET
 VERCEL_TOKEN
 VERCEL_ORG_ID
 VERCEL_PROJECT_ID
 ```
 
 The daily crawler runs at 07:00 SAST (05:00 UTC).
+The digest dispatcher runs every 10 minutes and recovers stale `running` digest jobs
+before processing queued manual sends.
 
 ## 🚢 Deployment
 

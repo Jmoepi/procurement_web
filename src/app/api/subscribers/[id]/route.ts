@@ -16,8 +16,9 @@ import {
   API_ERRORS,
   formatZodErrors,
 } from "@/lib/api-errors";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAdmin, requireAuth } from "@/lib/api-auth";
 import { handleOptions, withCors } from "@/lib/cors";
+import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
 
@@ -31,16 +32,9 @@ const UpdateSubscriberSchema = z.object({
 });
 
 function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
 
-  if (!url || !key) {
-    throw new Error(
-      "Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)"
-    );
-  }
-
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 }
 
 /** ✅ Preflight */
@@ -79,6 +73,8 @@ export async function GET(
 
     const { auth, response } = await requireAuth(request);
     if (response) return withCors(request, response);
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return withCors(request, adminResponse);
 
     const subscriberId = await readId(context);
     if (!subscriberId) {
@@ -140,6 +136,8 @@ export async function PUT(
 
     const { auth, response } = await requireAuth(request);
     if (response) return withCors(request, response);
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return withCors(request, adminResponse);
 
     const subscriberId = await readId(context);
     if (!subscriberId) {
@@ -269,6 +267,8 @@ export async function DELETE(
 
     const { auth, response } = await requireAuth(request);
     if (response) return withCors(request, response);
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return withCors(request, adminResponse);
 
     const subscriberId = await readId(context);
     if (!subscriberId) {

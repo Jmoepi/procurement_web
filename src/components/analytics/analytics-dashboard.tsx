@@ -3,7 +3,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { getDigestRecipientCount, getDigestTenderCount, isDigestSuccess } from '@/lib/digests'
+import {
+  getDigestRecipientCount,
+  getDigestTenderCount,
+  isDigestSuccess,
+} from '@/lib/digests'
 import { getCategoryColor, getPriorityColor } from '@/lib/utils'
 
 interface AnalyticsDashboardProps {

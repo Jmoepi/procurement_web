@@ -11,7 +11,7 @@ import {
   toNextResponse,
   API_ERRORS,
 } from "@/lib/api-errors";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAdmin, requireAuth } from "@/lib/api-auth";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
 
     const { auth, response } = await requireAuth(request);
     if (response) return response;
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return adminResponse;
 
     const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
     const supabase = createClient(url, serviceRoleKey, {

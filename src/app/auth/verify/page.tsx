@@ -84,39 +84,39 @@ export default function VerifyOTPPage() {
 
     setLoading(true);
     try {
-      // Verify OTP with server
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Invalid or expired code');
-
-      // On success, create the user using stored credentials
       const storedPassword = sessionStorage.getItem('signup_password');
       const storedFullName = sessionStorage.getItem('signup_full_name') || '';
       const storedInvite = sessionStorage.getItem('signup_invite_token') || undefined;
       if (!storedPassword) throw new Error('Signup state missing. Please re-start signup.');
 
-      const { error: signUpErr } = await supabase.auth.signUp({
+      // Verify OTP and create the user on the server
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          code,
+          password: storedPassword,
+          full_name: storedFullName,
+          invite_token: storedInvite,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Invalid or expired code');
+
+      // Establish a client session after server-side account creation
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
         email,
         password: storedPassword,
-        options: {
-          data: {
-            full_name: storedFullName,
-            invite_token: storedInvite,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
       });
 
-      if (signUpErr) throw signUpErr;
+      if (signInErr) throw signInErr;
 
       setVerified(true);
       toast({ title: 'Email verified!', description: 'Your account has been created.' });
 
       // clear temporary signup state
+      sessionStorage.removeItem('verification_email');
       sessionStorage.removeItem('signup_password');
       sessionStorage.removeItem('signup_full_name');
       sessionStorage.removeItem('signup_invite_token');

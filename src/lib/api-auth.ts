@@ -86,7 +86,7 @@ export async function requireAuth(request: Request) {
 /**
  * Middleware to require admin role
  */
-export function requireAdmin(auth: AuthContext): Response | null {
+export function requireAdmin(auth: AuthContext): NextResponse | null {
   if (auth.role !== "admin") {
     const [errorData, statusCode] = createErrorResponse(
       API_ERRORS.FORBIDDEN.code,

@@ -333,6 +333,7 @@ async def send_tenant_digests(tenant_id: str, tenders: list[CrawledTender]):
                 tenant_name=tenant.get("name", "Your Organization"),
                 subscriber_email=subscriber["email"],
                 subscriber_name=subscriber.get("name"),
+                unsubscribe_token=subscriber.get("unsubscribe_token"),
                 subscriber_categories=sub_categories,
                 tenders=filtered_tenders,
             )

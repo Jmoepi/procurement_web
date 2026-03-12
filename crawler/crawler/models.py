@@ -67,6 +67,7 @@ class DigestData(BaseModel):
     tenant_name: str
     subscriber_email: str
     subscriber_name: Optional[str] = None
+    unsubscribe_token: Optional[str] = None
     subscriber_categories: list[str]
     tenders: list[CrawledTender]
     generated_at: datetime = Field(default_factory=datetime.utcnow)

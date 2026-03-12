@@ -2,6 +2,7 @@ type SendEmailOptions = {
   to: string
   subject: string
   text: string
+  html?: string
 }
 
 function getEmailConfig() {
@@ -18,6 +19,7 @@ export async function sendTransactionalEmail({
   to,
   subject,
   text,
+  html,
 }: SendEmailOptions) {
   const { apiKey, from } = getEmailConfig()
 
@@ -36,6 +38,7 @@ export async function sendTransactionalEmail({
       to: [to],
       subject,
       text,
+      ...(html ? { html } : {}),
     }),
   })
 

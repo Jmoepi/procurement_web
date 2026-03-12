@@ -1,9 +1,9 @@
 /**
  * GET /api/digests - List digest runs
- * POST /api/digests/send - Manually trigger digest send
+ * POST /api/digests - Queue a manual digest send
  */
 
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter";
 import {
@@ -12,7 +12,8 @@ import {
   toNextResponse,
   API_ERRORS,
 } from "@/lib/api-errors";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAdmin, requireAuth } from "@/lib/api-auth";
+import { processDigestRunById } from "@/lib/digest-jobs";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 import { normalizeDigestStatus } from "@/lib/digests";
 
@@ -113,21 +114,24 @@ export async function POST(request: NextRequest) {
 
     const { auth, response } = await requireAuth(request);
     if (response) return response;
+    const adminResponse = requireAdmin(auth!);
+    if (adminResponse) return adminResponse;
 
     const supabase = getSupabaseAdmin();
 
-    // Check if a digest is already pending
+    // Check if a digest is already queued or running
     const { data: pendingDigest } = await supabase
       .from("digest_runs")
       .select("id")
       .eq("tenant_id", auth!.tenantId)
-      .eq("status", "pending")
-      .single();
+      .in("status", ["pending", "running"])
+      .limit(1)
+      .maybeSingle();
 
     if (pendingDigest) {
       const [errorData, statusCode] = createErrorResponse(
         API_ERRORS.CONFLICT.code,
-        "A digest is already pending. Please wait for it to complete.",
+        "A digest is already queued or running. Please wait for it to complete.",
         API_ERRORS.CONFLICT.statusCode
       );
       return toNextResponse(errorData, statusCode);
@@ -163,18 +167,30 @@ export async function POST(request: NextRequest) {
       return toNextResponse(errorData, statusCode);
     }
 
-    // In production, trigger background job here
-    // e.g., queue.enqueue('send_digest', { tenantId: auth.tenantId, digestId: newDigest.id })
+    after(async () => {
+      const result = await processDigestRunById({
+        digestId: newDigest.id,
+        expectedTenantId: auth!.tenantId,
+      });
+
+      if (result.status === "failed") {
+        console.error("Background digest job failed", {
+          digestId: result.digestId,
+          tenantId: result.tenantId,
+          message: result.message,
+        });
+      }
+    });
 
     const responseData = createSuccessResponse({
       digest: {
         ...newDigest,
         status: normalizeDigestStatus(newDigest.status),
       },
-      message: "Digest send triggered. Check back soon for results.",
+      message: "Digest queued. Delivery will continue in the background.",
     });
 
-    return toNextResponse(responseData, 202); // 202 Accepted
+    return toNextResponse(responseData, 202);
   } catch (error) {
     console.error("API Error:", error);
     const [errorData, statusCode] = createErrorResponse(
