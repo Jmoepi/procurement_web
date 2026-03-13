@@ -81,6 +81,20 @@ export type ExecuteDigestRunResult = {
   }
 }
 
+export class DigestExecutionCancelledError extends Error {
+  constructor(message = "Digest cancelled by admin.") {
+    super(message)
+    this.name = "DigestExecutionCancelledError"
+  }
+}
+
+export class DigestExecutionAbortedError extends Error {
+  constructor(message = "Digest run is no longer active.") {
+    super(message)
+    this.name = "DigestExecutionAbortedError"
+  }
+}
+
 const PRIORITY_ORDER: Record<string, number> = {
   urgent: 4,
   high: 3,
@@ -98,6 +112,32 @@ function getSupabaseAdmin() {
 
 function getMetadataValue(value: unknown) {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+}
+
+async function getDigestRunControlState(digestId: string) {
+  const supabase = getSupabaseAdmin()
+  const { data, error } = await supabase
+    .from("digest_runs")
+    .select("status, metadata")
+    .eq("id", digestId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to load digest control state: ${error.message}`)
+  }
+
+  if (!data) {
+    return null
+  }
+
+  return {
+    status: String(data.status),
+    metadata: getMetadataValue(data.metadata),
+  }
+}
+
+function isCancellationRequested(metadata: DigestMetadata) {
+  return metadata.cancel_requested === true || typeof metadata.cancel_requested_at === "string"
 }
 
 function normalizeSourceName(source: DigestTenderRaw["source"]) {
@@ -436,6 +476,7 @@ async function updateDigestRun(options: {
   failures: Array<{ email: string; message: string }>
   metadata: DigestMetadata
   windowStartedAt: string
+  errorMessage?: string | null
 }) {
   const supabase = getSupabaseAdmin()
   const finishedAt = new Date().toISOString()
@@ -459,7 +500,10 @@ async function updateDigestRun(options: {
       emails_sent: options.emailsSent,
       finished_at: finishedAt,
       logs,
-      error_message: options.status === "fail" ? failureSummary ?? "Digest delivery failed" : null,
+      error_message:
+        options.status === "fail"
+          ? options.errorMessage ?? failureSummary ?? "Digest delivery failed"
+          : null,
       metadata: {
         ...options.metadata,
         job_finished_at: finishedAt,
@@ -571,47 +615,99 @@ export async function executeDigestRun(options: {
   const appBaseUrl = getAppBaseUrl()
   const dashboardUrl = `${appBaseUrl}/tenders`
 
-  const attempts = await Promise.all(
-    subscribers.map(async (subscriber): Promise<DeliveryAttempt> => {
-      const preferences = parsePreferences(subscriber.preferences)
-      const matchedTenders = filterTendersForSubscriber(tenders, preferences)
+  const attempts: DeliveryAttempt[] = []
 
-      if (matchedTenders.length === 0) {
-        return { status: "skipped", subscriberId: subscriber.id }
-      }
+  const finalizeCancellation = async (controlMetadata?: DigestMetadata) => {
+    const sentAttempts = attempts.filter(
+      (attempt): attempt is Extract<DeliveryAttempt, { status: "sent" }> => attempt.status === "sent"
+    )
+    const failedAttempts = attempts.filter(
+      (attempt): attempt is Extract<DeliveryAttempt, { status: "failed" }> => attempt.status === "failed"
+    )
+    const matchedRecipientCount = attempts.filter((attempt) => attempt.status !== "skipped").length
 
-      const unsubscribeUrl = `${appBaseUrl}/unsubscribe?token=${encodeURIComponent(subscriber.unsubscribe_token)}`
-
-      try {
-        await sendTransactionalEmail({
-          to: subscriber.email,
-          subject: buildDigestSubject(matchedTenders.length),
-          text: buildDigestTextEmail({
-            tenantName: tenant.name || "Your organization",
-            tenders: matchedTenders,
-            dashboardUrl,
-            unsubscribeUrl,
-          }),
-          html: buildDigestHtmlEmail({
-            tenantName: tenant.name || "Your organization",
-            tenders: matchedTenders,
-            dashboardUrl,
-            unsubscribeUrl,
-          }),
-        })
-
-        return { status: "sent", subscriberId: subscriber.id }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown email error"
-        return {
-          status: "failed",
-          subscriberId: subscriber.id,
-          email: subscriber.email,
-          message,
-        }
-      }
+    const digest = await updateDigestRun({
+      digestId: options.digestId,
+      status: "fail",
+      tenders,
+      recipientCount: subscribers.length,
+      matchedRecipientCount,
+      emailsSent: sentAttempts.length,
+      failures: failedAttempts.map((attempt) => ({
+        email: attempt.email,
+        message: attempt.message,
+      })),
+      metadata: {
+        ...options.metadata,
+        ...(controlMetadata ?? {}),
+        cancelled_at: new Date().toISOString(),
+      },
+      windowStartedAt,
+      errorMessage: "Digest cancelled by admin.",
     })
-  )
+
+    return {
+      digest,
+      summary: {
+        recipientCount: subscribers.length,
+        matchedRecipientCount,
+        failedRecipientCount: failedAttempts.length,
+        tenderCount: tenders.length,
+        windowStartedAt,
+      },
+    }
+  }
+
+  for (const subscriber of subscribers) {
+    const controlState = await getDigestRunControlState(options.digestId)
+
+    if (!controlState || controlState.status !== "running") {
+      throw new DigestExecutionAbortedError()
+    }
+
+    if (isCancellationRequested(controlState.metadata)) {
+      return finalizeCancellation(controlState.metadata)
+    }
+
+    const preferences = parsePreferences(subscriber.preferences)
+    const matchedTenders = filterTendersForSubscriber(tenders, preferences)
+
+    if (matchedTenders.length === 0) {
+      attempts.push({ status: "skipped", subscriberId: subscriber.id })
+      continue
+    }
+
+    const unsubscribeUrl = `${appBaseUrl}/unsubscribe?token=${encodeURIComponent(subscriber.unsubscribe_token)}`
+
+    try {
+      await sendTransactionalEmail({
+        to: subscriber.email,
+        subject: buildDigestSubject(matchedTenders.length),
+        text: buildDigestTextEmail({
+          tenantName: tenant.name || "Your organization",
+          tenders: matchedTenders,
+          dashboardUrl,
+          unsubscribeUrl,
+        }),
+        html: buildDigestHtmlEmail({
+          tenantName: tenant.name || "Your organization",
+          tenders: matchedTenders,
+          dashboardUrl,
+          unsubscribeUrl,
+        }),
+      })
+
+      attempts.push({ status: "sent", subscriberId: subscriber.id })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown email error"
+      attempts.push({
+        status: "failed",
+        subscriberId: subscriber.id,
+        email: subscriber.email,
+        message,
+      })
+    }
+  }
 
   const matchedRecipientCount = attempts.filter((attempt) => attempt.status !== "skipped").length
   const sentAttempts = attempts.filter(
@@ -633,6 +729,11 @@ export async function executeDigestRun(options: {
     if (subscriberUpdateError) {
       throw new Error(`Failed to update subscriber delivery state: ${subscriberUpdateError.message}`)
     }
+  }
+
+  const finalControlState = await getDigestRunControlState(options.digestId)
+  if (finalControlState && isCancellationRequested(finalControlState.metadata)) {
+    return finalizeCancellation(finalControlState.metadata)
   }
 
   const digest = await updateDigestRun({

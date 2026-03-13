@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/server";
 import { DigestHistory } from "@/components/digest/digest-history";
 import { DigestPreview } from "@/components/digest/digest-preview";
+import { DigestQueueAction } from "@/components/digest/digest-queue-action";
 import { normalizeDigestStatus } from "@/lib/digests";
 
 export const metadata: Metadata = {
@@ -74,6 +75,8 @@ export default async function DigestPage() {
   const digestTime =
     typeof tenantSettings.digest_time === "string" ? tenantSettings.digest_time : "07:00";
   const latestDigestStatus = latestDigest ? normalizeDigestStatus(latestDigest.status) : null;
+  const hasActiveDigest =
+    latestDigestStatus === "pending" || latestDigestStatus === "running";
 
   return (
     <div className="space-y-6">
@@ -93,30 +96,33 @@ export default async function DigestPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Badge className="rounded-full px-3 py-1 text-xs font-medium">
-              {recentTenders.length} in today&apos;s preview
-            </Badge>
-            <Badge
-              variant="secondary"
-              className="rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-medium"
-            >
-              {activeRecipients} active recipients
-            </Badge>
-            <Badge
-              variant="secondary"
-              className="rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-medium"
-            >
-              Scheduled for {digestTime} SAST
-            </Badge>
-            {latestDigestStatus ? (
-              <Badge
-                variant={latestDigestStatus === "success" ? "secondary" : latestDigestStatus === "fail" ? "destructive" : "outline"}
-                className="rounded-full px-3 py-1 text-xs font-medium capitalize"
-              >
-                Latest digest: {latestDigestStatus === "success" ? "sent" : latestDigestStatus}
+          <div className="flex flex-col gap-4 lg:items-end">
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <Badge className="rounded-full px-3 py-1 text-xs font-medium">
+                {recentTenders.length} in today&apos;s preview
               </Badge>
-            ) : null}
+              <Badge
+                variant="secondary"
+                className="rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-medium"
+              >
+                {activeRecipients} active recipients
+              </Badge>
+              <Badge
+                variant="secondary"
+                className="rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-medium"
+              >
+                Scheduled for {digestTime} SAST
+              </Badge>
+              {latestDigestStatus ? (
+                <Badge
+                  variant={latestDigestStatus === "success" ? "secondary" : latestDigestStatus === "fail" ? "destructive" : "outline"}
+                  className="rounded-full px-3 py-1 text-xs font-medium capitalize"
+                >
+                  Latest digest: {latestDigestStatus === "success" ? "sent" : latestDigestStatus}
+                </Badge>
+              ) : null}
+            </div>
+            <DigestQueueAction hasActiveDigest={hasActiveDigest} />
           </div>
         </div>
       </section>

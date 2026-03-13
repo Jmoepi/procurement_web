@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardNav } from "@/components/dashboard/nav";
 import { DashboardHeader } from "@/components/dashboard/header";
@@ -17,7 +17,6 @@ export default async function DashboardLayout({
     redirect("/auth/login");
   }
 
-  // Get user profile and tenant
   const { data: profile } = await supabase
     .from("profiles")
     .select("*, tenant:tenants(*)")
@@ -26,7 +25,9 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[26rem] bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.12),transparent_60%)]" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[28rem] bg-[radial-gradient(circle_at_top,_hsl(var(--chart-1)/0.20),transparent_52%)]" />
+      <div className="pointer-events-none fixed left-[-10rem] top-[22rem] -z-10 h-[20rem] w-[20rem] rounded-full bg-[radial-gradient(circle,_hsl(var(--chart-2)/0.14),transparent_68%)] blur-3xl" />
+      <div className="pointer-events-none fixed right-[-8rem] top-[14rem] -z-10 h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,_hsl(var(--chart-4)/0.14),transparent_68%)] blur-3xl" />
       <div className="pointer-events-none fixed inset-0 -z-10 bg-noise" />
       <DashboardHeader user={user} profile={profile} />
       <div className="mx-auto flex w-full max-w-[1600px]">
@@ -43,3 +44,4 @@ export default async function DashboardLayout({
     </div>
   );
 }
+

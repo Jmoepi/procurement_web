@@ -5,7 +5,10 @@
 
 import { after, NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter";
+import {
+  createDurableRateLimiter,
+  getClientIdentifier,
+} from "@/lib/rate-limiter";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -17,7 +20,11 @@ import { processDigestRunById } from "@/lib/digest-jobs";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 import { normalizeDigestStatus } from "@/lib/digests";
 
-const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
+const rateLimiter = createDurableRateLimiter(
+  "api:digests",
+  60 * 60 * 1000,
+  100
+);
 
 function getSupabaseAdmin() {
   const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
@@ -30,7 +37,7 @@ function getSupabaseAdmin() {
 export async function GET(request: NextRequest) {
   try {
     const clientId = getClientIdentifier(request);
-    const rateLimit = rateLimiter(clientId);
+    const rateLimit = await rateLimiter(clientId);
     if (!rateLimit.allowed) {
       const [errorData, statusCode] = createErrorResponse(
         API_ERRORS.RATE_LIMITED.code,
@@ -102,7 +109,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const clientId = getClientIdentifier(request);
-    const rateLimit = rateLimiter(clientId);
+    const rateLimit = await rateLimiter(clientId);
     if (!rateLimit.allowed) {
       const [errorData, statusCode] = createErrorResponse(
         API_ERRORS.RATE_LIMITED.code,

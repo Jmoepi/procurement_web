@@ -2,10 +2,17 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
-import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter";
+import {
+  createDurableRateLimiter,
+  getClientIdentifier,
+} from "@/lib/rate-limiter";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
-const otpRequestLimiter = createRateLimiter(15 * 60 * 1000, 5);
+const otpRequestLimiter = createDurableRateLimiter(
+  "auth:request-otp",
+  15 * 60 * 1000,
+  5
+);
 const OTP_COOLDOWN_MS = 60 * 1000;
 const OTP_TTL_MS = 15 * 60 * 1000;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,7 +40,7 @@ function hashCode(code: string) {
 
 export async function POST(req: Request) {
   try {
-    const rateLimit = otpRequestLimiter(getClientIdentifier(req));
+    const rateLimit = await otpRequestLimiter(getClientIdentifier(req));
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: "Too many OTP requests. Please wait before trying again." },

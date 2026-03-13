@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "tsc -p tsconfig.tests.json && node -r ./.test-dist/tests/register-tests.js --test --experimental-test-isolation=none \".test-dist/tests/**/*.test.js\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

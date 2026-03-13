@@ -2,10 +2,17 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter";
+import {
+  createDurableRateLimiter,
+  getClientIdentifier,
+} from "@/lib/rate-limiter";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
 
-const otpVerifyLimiter = createRateLimiter(15 * 60 * 1000, 10);
+const otpVerifyLimiter = createDurableRateLimiter(
+  "auth:verify-otp",
+  15 * 60 * 1000,
+  10
+);
 
 const VerifyOtpSchema = z.object({
   email: z.string().email(),
@@ -34,7 +41,7 @@ function hashCode(code: string) {
 
 export async function POST(req: Request) {
   try {
-    const rateLimit = otpVerifyLimiter(getClientIdentifier(req));
+    const rateLimit = await otpVerifyLimiter(getClientIdentifier(req));
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: "Too many verification attempts. Please wait and try again." },

@@ -1,4 +1,4 @@
-import * as React from "react"
+﻿import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -9,14 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md",
+        default:
+          "bg-[linear-gradient(135deg,hsl(var(--chart-2))_0%,hsl(var(--primary))_46%,hsl(var(--chart-3))_100%)] text-primary-foreground shadow-[0_18px_40px_-20px_hsl(var(--primary)/0.65)] hover:brightness-[1.04] hover:shadow-[0_22px_48px_-20px_hsl(var(--chart-3)/0.45)]",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-border bg-background hover:bg-muted hover:border-muted-foreground/20",
+          "border border-border/80 bg-background/75 backdrop-blur-sm hover:bg-background hover:border-primary/20 hover:text-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-muted",
+          "bg-[linear-gradient(135deg,hsl(var(--secondary))_0%,hsl(var(--accent))_100%)] text-secondary-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%/0.55)] hover:brightness-[1.02]",
+        ghost: "hover:bg-primary/8 hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
@@ -55,3 +56,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button"
 
 export { Button, buttonVariants }
+

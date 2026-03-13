@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  Bell, 
-  LogOut, 
-  Settings, 
+import {
+  Search,
+  Bell,
+  LogOut,
+  Settings,
   User as UserIcon,
   X,
   Sparkles,
@@ -140,117 +140,121 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
   const planName = profile?.tenant?.plan || "starter";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-black/[0.04] dark:border-white/[0.06] bg-white/80 dark:bg-black/60 backdrop-blur-2xl backdrop-saturate-150">
-      <div className="flex h-14 items-center justify-between px-4 lg:px-6">
-        {/* Left side - Logo and mobile nav */}
+    <header className="glass-nav sticky top-0 z-50 w-full border-b border-white/45 dark:border-white/10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/60 to-transparent" />
+      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-3">
           <MobileNav profile={profile} />
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Search className="h-4 w-4 text-primary-foreground" />
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#06b6d4_0%,#2563eb_45%,#8b5cf6_100%)] text-white shadow-[0_18px_30px_-18px_rgba(59,130,246,0.9)] ring-1 ring-white/60">
+              <Search className="h-4 w-4" />
             </div>
-            <span className="hidden sm:block text-base font-semibold tracking-tight">
-              Procurement Radar
+            <span className="hidden text-base font-semibold tracking-tight sm:block">
+              Procurement <span className="text-gradient-blue">Radar</span>
             </span>
           </Link>
         </div>
 
-        {/* Center - Search (desktop) */}
-        <div className="flex-1 max-w-xl mx-4 hidden lg:block">
-          <form onSubmit={handleSearchSubmit} className="relative group">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
+        <div className="mx-4 hidden max-w-2xl flex-1 lg:block">
+          <form onSubmit={handleSearchSubmit} className="group relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-sky-600 dark:group-focus-within:text-sky-300" />
             <input
               ref={desktopSearchRef}
               type="search"
               placeholder="Search tenders and jump straight into action"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 rounded-xl border border-border/60 bg-muted/30 px-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:bg-background focus-visible:border-primary/30 transition-all duration-300"
+              className="h-11 w-full rounded-2xl border border-white/60 bg-white/62 px-11 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] ring-offset-background placeholder:text-muted-foreground focus-visible:border-sky-400/40 focus-visible:bg-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/25 dark:border-white/10 dark:bg-white/[0.05] dark:focus-visible:bg-white/[0.08]"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted/80 border border-border/60">
-              <Command className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground">K</span>
+            <div className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-full border border-white/60 bg-white/75 px-2 py-1 text-[10px] font-semibold text-muted-foreground shadow-sm sm:flex dark:border-white/10 dark:bg-white/[0.06]">
+              <Command className="h-3 w-3" />
+              <span>K</span>
             </div>
           </form>
         </div>
 
-        {/* Right side - Actions */}
-        <div className="flex items-center gap-1.5">
-          {/* Mobile search button */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="lg:hidden h-9 w-9 rounded-xl hover:bg-muted/60"
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-xl border border-white/45 bg-white/55 shadow-sm backdrop-blur-xl hover:bg-white/75 lg:hidden dark:border-white/10 dark:bg-white/[0.05]"
             onClick={openSearch}
           >
             <Search className="h-4 w-4" />
           </Button>
 
-          {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl hover:bg-muted/60">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-9 w-9 rounded-xl border border-white/45 bg-white/55 shadow-sm backdrop-blur-xl hover:bg-white/75 dark:border-white/10 dark:bg-white/[0.05]"
+              >
                 <Bell className="h-4 w-4" />
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-gradient-to-br from-primary to-primary/80 text-[10px] font-bold text-primary-foreground flex items-center justify-center ring-2 ring-background">
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f59e0b_0%,#ec4899_50%,#8b5cf6_100%)] text-[10px] font-bold text-white ring-2 ring-background">
                   3
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 rounded-xl border-border/60 shadow-xl">
+            <DropdownMenuContent align="end" className="glass-subtle w-80 rounded-[24px] border-border/60 shadow-[0_30px_60px_-36px_rgba(37,99,235,0.45)]">
               <DropdownMenuLabel className="flex items-center justify-between py-3">
                 <span className="font-semibold">Notifications</span>
-                <Badge variant="secondary" className="text-[10px] font-semibold">3 new</Badge>
+                <Badge variant="secondary" className="border-sky-500/15 bg-sky-500/10 text-[10px] font-semibold text-sky-700 dark:text-sky-200">
+                  3 new
+                </Badge>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-[300px] overflow-y-auto">
-                <NotificationItem 
+                <NotificationItem
                   title="New high-priority tender"
                   description="Courier services for Department of Health"
                   time="2 min ago"
                   isNew
                 />
-                <NotificationItem 
+                <NotificationItem
                   title="Tender closing soon"
                   description="Printing services deadline in 2 days"
                   time="1 hour ago"
                   isNew
                 />
-                <NotificationItem 
+                <NotificationItem
                   title="Daily digest sent"
                   description="12 tenders included in today's digest"
                   time="6 hours ago"
                 />
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="justify-center text-primary cursor-pointer font-medium py-2.5">
+              <DropdownMenuItem className="cursor-pointer justify-center py-2.5 font-medium text-sky-700 dark:text-sky-200">
                 View all notifications
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Help */}
-          <Button variant="ghost" size="icon" className="hidden sm:flex h-9 w-9 rounded-xl hover:bg-muted/60">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden h-9 w-9 rounded-xl border border-white/45 bg-white/55 shadow-sm backdrop-blur-xl hover:bg-white/75 sm:flex dark:border-white/10 dark:bg-white/[0.05]"
+          >
             <HelpCircle className="h-4 w-4" />
           </Button>
 
-          {/* User menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full ring-2 ring-border/60 hover:ring-primary/40 transition-all duration-300">
+              <Button className="relative h-9 w-9 rounded-full border border-white/55 bg-white/55 p-0 shadow-sm backdrop-blur-xl hover:bg-white/75 dark:border-white/10 dark:bg-white/[0.05]" variant="ghost">
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={profile?.avatar_url ?? undefined} alt={profile?.full_name ?? "User"} />
-                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold text-sm">
+                  <AvatarFallback className="bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(168,85,247,0.18),rgba(251,191,36,0.18))] text-sky-700 font-semibold text-sm dark:text-sky-200">
                     {getInitials(profile?.full_name || user.email || "U")}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 rounded-xl border-border/60 shadow-xl" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal p-4">
+            <DropdownMenuContent className="glass-subtle w-64 rounded-[24px] border-border/60 shadow-[0_30px_60px_-36px_rgba(37,99,235,0.45)]" align="end" forceMount>
+              <DropdownMenuLabel className="p-4 font-normal">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12 ring-2 ring-border/60">
+                  <Avatar className="h-12 w-12 ring-2 ring-sky-500/20">
                     <AvatarImage src={profile?.avatar_url ?? undefined} />
-                    <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary text-lg font-bold">
+                    <AvatarFallback className="bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(168,85,247,0.18),rgba(251,191,36,0.18))] text-sky-700 text-lg font-bold dark:text-sky-200">
                       {getInitials(profile?.full_name || user.email || "U")}
                     </AvatarFallback>
                   </Avatar>
@@ -258,12 +262,12 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
                     <p className="text-sm font-semibold leading-none">
                       {profile?.full_name || "User"}
                     </p>
-                    <p className="text-xs leading-none text-muted-foreground truncate max-w-[140px]">
+                    <p className="max-w-[140px] truncate text-xs leading-none text-muted-foreground">
                       {user.email}
                     </p>
-                    <Badge 
-                      variant="outline" 
-                      className="w-fit text-[9px] mt-1.5 capitalize font-semibold bg-primary/5 border-primary/20 text-primary"
+                    <Badge
+                      variant="outline"
+                      className="mt-1.5 w-fit border-sky-500/20 bg-sky-500/10 text-[9px] font-semibold capitalize text-sky-700 dark:text-sky-200"
                     >
                       {planName} plan
                     </Badge>
@@ -271,30 +275,30 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="cursor-pointer rounded-lg mx-2 my-0.5">
+              <DropdownMenuItem asChild className="mx-2 my-0.5 cursor-pointer rounded-lg">
                 <Link href="/settings" className="flex items-center gap-2.5 py-2">
                   <UserIcon className="h-4 w-4 text-muted-foreground" />
                   <span>Profile</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer rounded-lg mx-2 my-0.5">
+              <DropdownMenuItem asChild className="mx-2 my-0.5 cursor-pointer rounded-lg">
                 <Link href="/settings" className="flex items-center gap-2.5 py-2">
                   <Settings className="h-4 w-4 text-muted-foreground" />
                   <span>Settings</span>
                 </Link>
               </DropdownMenuItem>
               {planName !== "enterprise" && (
-                <DropdownMenuItem asChild className="cursor-pointer rounded-lg mx-2 my-0.5 bg-primary/5 hover:bg-primary/10">
-                  <Link href="/settings" className="flex items-center gap-2.5 py-2 text-primary">
+                <DropdownMenuItem asChild className="mx-2 my-0.5 cursor-pointer rounded-xl bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(168,85,247,0.1),rgba(251,191,36,0.14))] hover:bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(168,85,247,0.14),rgba(251,191,36,0.18))]">
+                  <Link href="/settings" className="flex items-center gap-2.5 py-2 text-sky-700 dark:text-sky-200">
                     <Sparkles className="h-4 w-4" />
                     <span className="font-medium">Upgrade Plan</span>
                   </Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={handleSignOut} 
-                className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 py-2.5 rounded-lg mx-2 my-0.5"
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="mx-2 my-0.5 cursor-pointer rounded-lg py-2.5 text-destructive focus:bg-destructive/10 focus:text-destructive"
               >
                 <LogOut className="mr-2.5 h-4 w-4" />
                 <span>Sign out</span>
@@ -304,10 +308,9 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
         </div>
       </div>
 
-      {/* Mobile search overlay */}
       {searchOpen && (
-        <div className="absolute inset-0 z-50 bg-background lg:hidden">
-          <form onSubmit={handleSearchSubmit} className="flex items-center h-16 px-4 gap-2">
+        <div className="glass-nav absolute inset-0 z-50 border-b border-white/45 lg:hidden dark:border-white/10">
+          <form onSubmit={handleSearchSubmit} className="flex h-16 items-center gap-2 px-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -316,17 +319,17 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
                 placeholder="Search tenders..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 rounded-xl border-0 bg-muted px-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="h-11 w-full rounded-2xl border border-white/60 bg-white/75 px-10 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] focus:outline-none focus:ring-2 focus:ring-sky-400/25 dark:border-white/10 dark:bg-white/[0.08]"
               />
             </div>
-            <Button type="submit" className="rounded-xl px-4">
+            <Button type="submit" className="rounded-2xl px-4">
               Go
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               type="button"
               size="icon"
-              className="rounded-xl"
+              className="rounded-2xl border border-white/45 bg-white/60 dark:border-white/10 dark:bg-white/[0.05]"
               onClick={closeSearch}
             >
               <X className="h-5 w-5" />
@@ -338,29 +341,30 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
   );
 }
 
-function NotificationItem({ 
-  title, 
-  description, 
-  time, 
-  isNew 
-}: { 
-  title: string; 
-  description: string; 
-  time: string; 
+function NotificationItem({
+  title,
+  description,
+  time,
+  isNew,
+}: {
+  title: string;
+  description: string;
+  time: string;
   isNew?: boolean;
 }) {
   return (
-    <div className={`px-4 py-3 hover:bg-muted/60 cursor-pointer transition-colors ${isNew ? 'bg-primary/5' : ''}`}>
+    <div className={`cursor-pointer px-4 py-3 transition-colors hover:bg-white/55 dark:hover:bg-white/[0.04] ${isNew ? "bg-sky-500/6" : ""}`}>
       <div className="flex items-start gap-3">
         {isNew && (
-          <div className="h-2 w-2 rounded-full bg-gradient-to-br from-primary to-primary/70 mt-1.5 shrink-0 ring-2 ring-primary/20" />
+          <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[linear-gradient(135deg,#06b6d4_0%,#8b5cf6_100%)] ring-2 ring-sky-500/15" />
         )}
-        <div className={`flex-1 ${!isNew ? 'ml-5' : ''}`}>
+        <div className={`flex-1 ${!isNew ? "ml-5" : ""}`}>
           <p className="text-sm font-medium">{title}</p>
-          <p className="text-xs text-muted-foreground line-clamp-1">{description}</p>
-          <p className="text-[10px] text-muted-foreground/70 mt-1">{time}</p>
+          <p className="line-clamp-1 text-xs text-muted-foreground">{description}</p>
+          <p className="mt-1 text-[10px] text-muted-foreground/70">{time}</p>
         </div>
       </div>
     </div>
   );
 }
+

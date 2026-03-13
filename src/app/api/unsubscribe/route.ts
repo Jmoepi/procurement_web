@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server"
-import { createRateLimiter, getClientIdentifier } from "@/lib/rate-limiter"
+import {
+  createDurableRateLimiter,
+  getClientIdentifier,
+} from "@/lib/rate-limiter"
 import {
   API_ERRORS,
   createErrorResponse,
@@ -8,7 +11,11 @@ import {
 } from "@/lib/api-errors"
 import { parseUnsubscribeToken, unsubscribeByToken } from "@/lib/subscriptions"
 
-const rateLimiter = createRateLimiter(60 * 60 * 1000, 100)
+const rateLimiter = createDurableRateLimiter(
+  "public:unsubscribe",
+  60 * 60 * 1000,
+  100
+)
 
 function getToken(request: NextRequest, body: unknown) {
   const fromQuery = request.nextUrl.searchParams.get("token")
@@ -26,7 +33,7 @@ function getToken(request: NextRequest, body: unknown) {
 
 async function handleRequest(request: NextRequest, body: unknown = null) {
   const clientId = getClientIdentifier(request)
-  const rateLimit = rateLimiter(clientId)
+  const rateLimit = await rateLimiter(clientId)
   if (!rateLimit.allowed) {
     const [errorData, statusCode] = createErrorResponse(
       API_ERRORS.RATE_LIMITED.code,

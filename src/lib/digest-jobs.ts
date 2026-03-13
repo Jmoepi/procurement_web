@@ -1,7 +1,12 @@
 import { timingSafeEqual } from "crypto"
 import { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { executeDigestRun, type ExecuteDigestRunResult } from "@/lib/digest-execution"
+import {
+  DigestExecutionAbortedError,
+  DigestExecutionCancelledError,
+  executeDigestRun,
+  type ExecuteDigestRunResult,
+} from "@/lib/digest-execution"
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config"
 
 type DigestMetadata = Record<string, unknown>
@@ -23,7 +28,13 @@ type ClaimedDigestRunResult =
       status: "skipped"
       digestId: string
       tenantId?: string
-      reason: "not_found" | "tenant_mismatch" | "already_running" | "not_pending"
+      reason:
+        | "not_found"
+        | "tenant_mismatch"
+        | "already_running"
+        | "not_pending"
+        | "state_changed"
+        | "cancelled"
     }
 
 export type DigestJobRunResult =
@@ -37,7 +48,13 @@ export type DigestJobRunResult =
       status: "skipped"
       digestId: string
       tenantId?: string
-      reason: "not_found" | "tenant_mismatch" | "already_running" | "not_pending"
+      reason:
+        | "not_found"
+        | "tenant_mismatch"
+        | "already_running"
+        | "not_pending"
+        | "state_changed"
+        | "cancelled"
     }
   | {
       status: "failed"
@@ -354,6 +371,37 @@ export async function processDigestRunById(options: {
       summary: execution.summary,
     }
   } catch (error) {
+    if (error instanceof DigestExecutionCancelledError) {
+      try {
+        await markDigestRunFailed({
+          digestId: claim.digest.id,
+          metadata: {
+            ...normalizeMetadata(claim.digest.metadata),
+            cancelled_at: new Date().toISOString(),
+          },
+          message: error.message,
+        })
+      } catch (markError) {
+        console.error("Failed to persist digest cancellation", markError)
+      }
+
+      return {
+        status: "skipped",
+        digestId: claim.digest.id,
+        tenantId: claim.digest.tenant_id,
+        reason: "cancelled",
+      }
+    }
+
+    if (error instanceof DigestExecutionAbortedError) {
+      return {
+        status: "skipped",
+        digestId: claim.digest.id,
+        tenantId: claim.digest.tenant_id,
+        reason: "state_changed",
+      }
+    }
+
     const message = error instanceof Error ? error.message : "Digest job failed"
 
     try {
