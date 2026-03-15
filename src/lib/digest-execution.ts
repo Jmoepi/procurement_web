@@ -6,7 +6,7 @@ import {
   matchesTenderCategorySelection,
   normalizeTenderCategorySelection,
 } from "@/lib/tender-categories"
-import type { TenderCategory } from "@/types/database"
+import type { Database, Tables, TenderCategory } from "@/types"
 
 type DigestMetadata = Record<string, unknown>
 
@@ -22,18 +22,20 @@ type DigestSubscriber = {
   unsubscribe_token: string
 }
 
-type DigestTenderRaw = {
-  id: string
-  title: string
-  url: string
-  category: string
-  priority: string
-  closing_at: string | null
-  summary: string | null
-  first_seen: string
-  metadata: unknown
-  source?: { name: string }[] | { name: string } | null
-}
+type DigestTenderRaw = Pick<
+  Tables<"tender_read_model">,
+  | "id"
+  | "title"
+  | "url"
+  | "category"
+  | "priority"
+  | "closing_at"
+  | "summary"
+  | "first_seen"
+  | "issuer"
+  | "reference_number"
+  | "source_name"
+>
 
 type DigestTender = {
   id: string
@@ -110,7 +112,7 @@ const PRIORITY_ORDER: Record<string, number> = {
 function getSupabaseAdmin() {
   const { url, serviceRoleKey } = getSupabaseServiceRoleConfig()
 
-  return createClient(url, serviceRoleKey, {
+  return createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false },
   })
 }
@@ -176,8 +178,8 @@ async function loadDigestTenders(options: {
 }) {
   const supabase = getSupabaseAdmin()
   let query = supabase
-    .from("tenders")
-    .select("id, title, url, category, priority, closing_at, summary, first_seen, metadata, source:sources(name)")
+    .from("tender_read_model")
+    .select("id, title, url, category, priority, closing_at, summary, first_seen, issuer, reference_number, source_name")
     .eq("tenant_id", options.tenantId)
 
   if (options.tenderIds.length > 0) {
@@ -188,7 +190,10 @@ async function loadDigestTenders(options: {
     }
 
     const tendersById = new Map(
-      ((data ?? []) as DigestTenderRaw[]).map((row) => [row.id, normalizeTender(row)])
+      ((data ?? []) as DigestTenderRaw[])
+        .map((row) => normalizeTender(row))
+        .filter((tender): tender is DigestTender => Boolean(tender))
+        .map((row) => [row.id, row])
     )
 
     return options.tenderIds
@@ -202,7 +207,9 @@ async function loadDigestTenders(options: {
     throw new Error(`Failed to load tenders: ${error.message}`)
   }
 
-  return ((data ?? []) as DigestTenderRaw[]).map(normalizeTender)
+  return ((data ?? []) as DigestTenderRaw[])
+    .map((row) => normalizeTender(row))
+    .filter((tender): tender is DigestTender => Boolean(tender))
 }
 
 async function getDigestRunControlState(digestId: string) {
@@ -231,20 +238,10 @@ function isCancellationRequested(metadata: DigestMetadata) {
   return metadata.cancel_requested === true || typeof metadata.cancel_requested_at === "string"
 }
 
-function normalizeSourceName(source: DigestTenderRaw["source"]) {
-  if (!source) {
+function normalizeTender(row: DigestTenderRaw): DigestTender | null {
+  if (!row.id || !row.title || !row.url || !row.category || !row.priority || !row.first_seen) {
     return null
   }
-
-  if (Array.isArray(source)) {
-    return source[0]?.name ?? null
-  }
-
-  return source.name ?? null
-}
-
-function normalizeTender(row: DigestTenderRaw): DigestTender {
-  const metadata = getMetadataValue(row.metadata)
 
   return {
     id: row.id,
@@ -255,10 +252,9 @@ function normalizeTender(row: DigestTenderRaw): DigestTender {
     closing_at: row.closing_at,
     summary: row.summary,
     first_seen: row.first_seen,
-    issuer: typeof metadata.issuer === "string" ? metadata.issuer : null,
-    referenceNumber:
-      typeof metadata.reference_number === "string" ? metadata.reference_number : null,
-    sourceName: normalizeSourceName(row.source),
+    issuer: row.issuer,
+    referenceNumber: row.reference_number,
+    sourceName: row.source_name,
   }
 }
 

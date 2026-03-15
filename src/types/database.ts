@@ -68,6 +68,15 @@ export interface Tender {
   closing_at?: string;
   days_remaining?: number;
   summary?: string;
+  description?: string;
+  reference_number?: string;
+  issuer?: string;
+  source_url?: string;
+  published_date?: string;
+  estimated_value?: number;
+  location?: string;
+  contact_email?: string;
+  contact_phone?: string;
   content_hash: string;
   raw_content?: string;
   first_seen: string;

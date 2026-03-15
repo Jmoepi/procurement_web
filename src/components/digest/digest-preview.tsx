@@ -10,11 +10,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Tender } from "@/types/database";
+import type { TenderSummaryItem } from "@/lib/tender-queries";
 import { formatDate, getCategoryColor, getDaysRemaining, getPriorityColor } from "@/lib/utils";
 
 interface DigestPreviewProps {
-  tenders: Tender[];
+  tenders: TenderSummaryItem[];
   tenantName: string;
   digestTime: string;
   recipientCount: number;
@@ -266,7 +266,7 @@ function DigestSection({
 }: {
   title: string;
   description: string;
-  tenders: Tender[];
+  tenders: TenderSummaryItem[];
 }) {
   return (
     <section className="space-y-3">
@@ -283,11 +283,11 @@ function DigestSection({
   );
 }
 
-function TenderItem({ tender }: { tender: Tender }) {
+function TenderItem({ tender }: { tender: TenderSummaryItem }) {
   const daysRemaining = tender.closing_at ? getDaysRemaining(tender.closing_at) : null;
-  const issuer = (tender.metadata?.issuer as string) || tender.source?.name || "Unknown issuer";
-  const referenceNumber = (tender.metadata?.reference_number as string) || "N/A";
-  const estimatedValue = tender.metadata?.estimated_value as number | undefined;
+  const issuer = tender.issuer || tender.source?.name || "Unknown issuer";
+  const referenceNumber = tender.reference_number || "N/A";
+  const estimatedValue = tender.estimated_value;
 
   return (
     <div className="rounded-[24px] border border-border/60 bg-background/80 p-4 shadow-sm">

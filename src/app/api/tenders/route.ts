@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     });
 
     let query = supabase
-      .from("tenders")
+      .from("tender_read_model")
       .select("*", { count: "exact" })
       .eq("tenant_id", auth!.tenantId);
 

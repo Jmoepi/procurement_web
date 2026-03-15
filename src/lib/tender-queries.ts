@@ -5,23 +5,26 @@ import {
   isTenderCategoryFilter,
 } from "@/lib/tender-categories";
 import type {
+  Database,
   Source,
   Tender,
   TenderDocument,
   TenderPriority,
+  Tables,
 } from "@/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+const TENDER_READ_MODEL_VIEW = "tender_read_model";
 
 type SupabaseLike = {
-  from: (table: string) => {
-    select: (columns: string, options?: Record<string, unknown>) => any;
-  };
-};
+  from: SupabaseClient<Database>["from"];
+}
 
-export type TenderListItem = Tender & {
+export type TenderListItem = Omit<Tender, "source"> & {
   source: Pick<Source, "name" | "url"> | null;
 };
 
-export type TenderSummaryItem = Tender & {
+export type TenderSummaryItem = Omit<Tender, "source"> & {
   source: Pick<Source, "name"> | null;
 };
 
@@ -55,8 +58,9 @@ export function buildTenderSearchClause(search: string) {
   return [
     `title.ilike.${pattern}`,
     `summary.ilike.${pattern}`,
-    `metadata->>issuer.ilike.${pattern}`,
-    `metadata->>reference_number.ilike.${pattern}`,
+    `issuer.ilike.${pattern}`,
+    `reference_number.ilike.${pattern}`,
+    `source_name.ilike.${pattern}`,
   ].join(",");
 }
 
@@ -101,8 +105,8 @@ export async function getTenderListPage(
   const offset = (options.page - 1) * options.pageSize;
 
   let query = supabase
-    .from("tenders")
-    .select("*, source:sources(name, url)", { count: "exact" })
+    .from(TENDER_READ_MODEL_VIEW)
+    .select("*", { count: "exact" })
     .eq("tenant_id", options.tenantId);
 
   query = applyTenderFilters(query, options);
@@ -112,7 +116,7 @@ export async function getTenderListPage(
     .range(offset, offset + options.pageSize - 1);
 
   return {
-    data: (data ?? []) as TenderListItem[],
+    data: mapTenderListItems(data),
     count: count ?? 0,
     error,
   };
@@ -124,15 +128,15 @@ export async function getRecentTenantTenders(
   limit = 5
 ) {
   const { data, error } = await supabase
-    .from("tenders")
-    .select("*, source:sources(name)")
+    .from(TENDER_READ_MODEL_VIEW)
+    .select("*")
     .eq("tenant_id", tenantId)
     .eq("expired", false)
     .order("first_seen", { ascending: false })
     .limit(limit);
 
   return {
-    data: (data ?? []) as TenderSummaryItem[],
+    data: mapTenderSummaryItems(data),
     error,
   };
 }
@@ -143,7 +147,7 @@ export async function getHighPriorityTenantTenders(
   limit = 5
 ) {
   const { data, error } = await supabase
-    .from("tenders")
+    .from(TENDER_READ_MODEL_VIEW)
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("priority", "high")
@@ -152,7 +156,7 @@ export async function getHighPriorityTenantTenders(
     .limit(limit);
 
   return {
-    data: (data ?? []) as Tender[],
+    data: mapTenderRows(data),
     error,
   };
 }
@@ -163,7 +167,7 @@ export async function getClosingSoonTenantTenders(
   limit = 6
 ) {
   const { data, error } = await supabase
-    .from("tenders")
+    .from(TENDER_READ_MODEL_VIEW)
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("expired", false)
@@ -173,7 +177,7 @@ export async function getClosingSoonTenantTenders(
     .limit(limit);
 
   return {
-    data: (data ?? []) as Tender[],
+    data: mapTenderRows(data),
     error,
   };
 }
@@ -185,8 +189,8 @@ export async function getDigestPreviewTenders(
   limit = 20
 ) {
   const { data, error } = await supabase
-    .from("tenders")
-    .select("*, source:sources(name)")
+    .from(TENDER_READ_MODEL_VIEW)
+    .select("*")
     .eq("tenant_id", tenantId)
     .eq("expired", false)
     .gte("first_seen", windowStartedAtIso)
@@ -195,7 +199,7 @@ export async function getDigestPreviewTenders(
     .limit(limit);
 
   return {
-    data: (data ?? []) as TenderSummaryItem[],
+    data: mapTenderSummaryItems(data),
     error,
   };
 }
@@ -225,7 +229,9 @@ export function getTenderPriorityRank(priority: TenderPriority | string) {
   return 0;
 }
 
-export function compareTendersForDigestPreview(left: Tender, right: Tender) {
+export function compareTendersForDigestPreview<
+  T extends { priority: TenderPriority | string; closing_at?: string }
+>(left: T, right: T) {
   const priorityDiff = getTenderPriorityRank(right.priority) - getTenderPriorityRank(left.priority);
   if (priorityDiff !== 0) {
     return priorityDiff;
@@ -234,4 +240,110 @@ export function compareTendersForDigestPreview(left: Tender, right: Tender) {
   const leftDeadline = left.closing_at ? new Date(left.closing_at).getTime() : Number.MAX_SAFE_INTEGER;
   const rightDeadline = right.closing_at ? new Date(right.closing_at).getTime() : Number.MAX_SAFE_INTEGER;
   return leftDeadline - rightDeadline;
+}
+
+function mapTenderRows(rows: unknown) {
+  return ((rows as Tables<"tender_read_model">[] | null) ?? [])
+    .map(normalizeTenderReadModelRow)
+    .filter((row): row is Tender => Boolean(row));
+}
+
+function mapTenderListItems(rows: unknown): TenderListItem[] {
+  return ((rows as Tables<"tender_read_model">[] | null) ?? [])
+    .map((row) => {
+      const normalized = normalizeTenderReadModelRow(row);
+      if (!normalized) {
+        return null;
+      }
+
+      return {
+        ...normalized,
+        source: row.source_name || row.source_website_url
+          ? {
+              name: row.source_name ?? "Unknown source",
+              url: row.source_website_url ?? "",
+            }
+          : null,
+      };
+    })
+    .filter((row): row is TenderListItem => Boolean(row));
+}
+
+function mapTenderSummaryItems(rows: unknown): TenderSummaryItem[] {
+  return ((rows as Tables<"tender_read_model">[] | null) ?? []).map(
+    (row) => {
+      const normalized = normalizeTenderReadModelRow(row);
+      if (!normalized) {
+        return null;
+      }
+
+      return {
+        ...normalized,
+        source: row.source_name
+          ? {
+              name: row.source_name,
+            }
+          : null,
+      };
+    }
+  ).filter((row): row is TenderSummaryItem => Boolean(row));
+}
+
+function normalizeTenderReadModelRow(row: Tables<"tender_read_model">): Tender | null {
+  if (
+    !row.id ||
+    !row.tenant_id ||
+    !row.title ||
+    !row.url ||
+    !row.category ||
+    !row.priority ||
+    !row.content_hash ||
+    !row.first_seen ||
+    !row.last_seen ||
+    row.expired === null ||
+    row.notified === null ||
+    !row.created_at ||
+    !row.updated_at
+  ) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    source_id: row.source_id ?? undefined,
+    title: row.title,
+    url: row.url,
+    category: row.category,
+    priority: row.priority,
+    closing_at: row.closing_at ?? undefined,
+    days_remaining: row.days_remaining ?? undefined,
+    summary: row.summary ?? undefined,
+    description: row.description ?? undefined,
+    reference_number: row.reference_number ?? undefined,
+    issuer: row.issuer ?? undefined,
+    source_url: row.source_url ?? undefined,
+    published_date: row.published_date ?? undefined,
+    estimated_value: row.estimated_value ?? undefined,
+    location: row.location ?? undefined,
+    contact_email: row.contact_email ?? undefined,
+    contact_phone: row.contact_phone ?? undefined,
+    content_hash: row.content_hash,
+    raw_content: row.raw_content ?? undefined,
+    first_seen: row.first_seen,
+    last_seen: row.last_seen,
+    expired: row.expired,
+    notified: row.notified,
+    metadata: normalizeMetadata(row.metadata),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function normalizeMetadata(value: Database["public"]["Views"]["tender_read_model"]["Row"]["metadata"]) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
 }

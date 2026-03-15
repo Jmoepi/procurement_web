@@ -8,6 +8,7 @@ import {
   type ExecuteDigestRunResult,
 } from "@/lib/digest-execution"
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config"
+import type { Database } from "@/types"
 
 type DigestMetadata = Record<string, unknown>
 
@@ -104,7 +105,7 @@ function getDigestJobMaxRetries() {
 function getSupabaseAdmin() {
   const { url, serviceRoleKey } = getSupabaseServiceRoleConfig()
 
-  return createClient(url, serviceRoleKey, {
+  return createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false },
   })
 }

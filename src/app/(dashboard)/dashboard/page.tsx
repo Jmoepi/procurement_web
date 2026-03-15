@@ -599,7 +599,7 @@ function OpportunityRow({
   showFoundDate,
   showDaysRemaining,
 }: {
-  tender: Tender & { source?: { name: string } | null };
+  tender: Omit<Tender, "source"> & { source?: { name: string } | null };
   index: number;
   metaLabel: string;
   highlight?: "high";

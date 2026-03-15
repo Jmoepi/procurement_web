@@ -28,10 +28,10 @@ import {
   getPriorityColor,
   truncateText,
 } from "@/lib/utils";
-import type { Tender } from "@/types";
+import type { TenderListItem } from "@/lib/tender-queries";
 
 interface TendersTableProps {
-  tenders: (Tender & { source: { name: string; url: string } | null })[];
+  tenders: TenderListItem[];
   totalCount: number;
   currentPage: number;
   totalPages: number;
@@ -238,7 +238,7 @@ function MobileTenderCard({
   tender,
   index,
 }: {
-  tender: Tender & { source: { name: string; url: string } | null };
+  tender: TenderListItem;
   index: number;
 }) {
   const isUrgent = tender.days_remaining != null && tender.days_remaining <= 3;

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
+import type { Database } from "@/types";
 
 /**
  * Rate limiting helpers.
@@ -20,7 +21,7 @@ export interface RateLimitResult {
 }
 
 const store = new Map<string, RateLimitEntry>();
-let supabaseAdmin: SupabaseClient | null = null;
+let supabaseAdmin: SupabaseClient<Database> | null = null;
 let durableFallbackWarningShown = false;
 
 function consumeInMemoryRateLimit(
@@ -72,7 +73,7 @@ function getSupabaseAdmin() {
 
   try {
     const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
-    supabaseAdmin = createClient(url, serviceRoleKey, {
+    supabaseAdmin = createClient<Database>(url, serviceRoleKey, {
       auth: { persistSession: false },
     });
     return supabaseAdmin;
