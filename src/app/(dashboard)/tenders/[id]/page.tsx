@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Calendar, Clock, Globe, FileText, ChevronRight, AlertTriangle, Share2, Bookmark } from "lucide-react";
 import { formatDate, formatDateTime, getCategoryColor, getPriorityColor, formatDaysRemaining } from "@/lib/utils";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 
 interface TenderDetailPageProps {
   params: Promise<{ id: string }>;
@@ -16,16 +17,8 @@ interface TenderDetailPageProps {
 export default async function TenderDetailPage({ params }: TenderDetailPageProps) {
   const { id } = await params;
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", user?.id ?? "")
-    .single();
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  const profile = workspace?.profile ?? null;
 
   const { data: tender, error } = await getTenderDetailById(
     supabase,

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getTenderListPage } from "@/lib/tender-queries";
 import { TendersFilters } from "@/components/tenders/tenders-filters";
 import { TendersTable } from "@/components/tenders/tenders-table";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 
 interface TendersPageProps {
   searchParams: Promise<{
@@ -18,16 +19,8 @@ interface TendersPageProps {
 export default async function TendersPage({ searchParams }: TendersPageProps) {
   const params = await searchParams;
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", user?.id ?? "")
-    .single();
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  const profile = workspace?.profile ?? null;
 
   const page = Math.max(1, parseInt(params.page ?? "1"));
   const pageSize = 20;

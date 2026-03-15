@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import type { Profile } from "@/types";
 import { getDashboardNavItems, getDashboardToneClasses } from "./navigation";
+import { getRoleLabel, hasAdminAccess } from "@/lib/roles";
 
 interface DashboardNavProps {
   profile: Profile | null;
@@ -15,7 +16,7 @@ interface DashboardNavProps {
 
 export function DashboardNav({ profile }: DashboardNavProps) {
   const pathname = usePathname();
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = hasAdminAccess(profile?.role);
   const filteredItems = getDashboardNavItems(isAdmin);
 
   const planName = profile?.tenant?.plan || "starter";
@@ -50,7 +51,7 @@ export function DashboardNav({ profile }: DashboardNavProps) {
                 className="gap-1 rounded-full border border-white/60 bg-white/70 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:text-slate-200"
               >
                 <ShieldCheck className="h-3 w-3" />
-                {isAdmin ? "Admin access" : "Member access"}
+                  {`${getRoleLabel(profile?.role)} access`}
               </Badge>
               <Badge
                 variant="secondary"

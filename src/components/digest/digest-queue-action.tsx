@@ -58,14 +58,14 @@ export function DigestQueueAction({ hasActiveDigest, isAdmin }: DigestQueueActio
           <Send className="h-4 w-4" />
         )}
         {!isAdmin
-          ? "Admin access required"
+          ? "Owner or admin access required"
           : hasActiveDigest
             ? "Digest in progress"
             : "Queue digest now"}
       </Button>
       <p className="text-xs text-muted-foreground">
         {!isAdmin
-          ? "Only workspace admins can queue or resend digest runs."
+          ? "Only workspace owners and admins can queue or resend digest runs."
           : hasActiveDigest
           ? "Wait for the current queued run to finish before triggering another."
           : "Use this to send a manual run immediately with the current digest window."}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 
 export const metadata: Metadata = {
   title: "Analytics | Procurement Radar SA",
@@ -11,17 +12,9 @@ export const metadata: Metadata = {
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single();
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  if (!workspace?.user) redirect("/auth/login");
+  const profile = workspace.profile;
 
   if (!profile) redirect("/dashboard");
 

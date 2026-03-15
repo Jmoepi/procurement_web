@@ -5,18 +5,13 @@ import { ProfileForm } from "@/components/settings/profile-form";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { BillingSection } from "@/components/settings/billing-section";
 import type { Profile, Subscription, TenantStats } from "@/types";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Get profile with tenant
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*, tenant:tenants(*)")
-    .eq("id", user?.id ?? "")
-    .single() as { data: Profile | null };
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  const user = workspace?.user;
+  const profile = (workspace?.profile ?? null) as Profile | null;
 
   // Get user's subscription
   const { data: subscription } = await supabase

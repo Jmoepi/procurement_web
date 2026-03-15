@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes, randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { sendTransactionalEmail } from "@/lib/email";
+import { hasAdminAccess, isOwner } from "@/lib/roles";
 
 function genToken() {
   try {
@@ -18,6 +19,24 @@ async function getAuthUser(supabase: any) {
   return userId ?? null;
 }
 
+async function getCurrentMembership(supabase: any, userId: string) {
+  const { data, error } = await supabase
+    .from("tenant_memberships")
+    .select("tenant_id, role")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -25,7 +44,7 @@ export async function POST(req: Request) {
     const role = body?.role ?? "member";
     const expiresAt = body?.expiresAt ?? null;
 
-    if (role !== "admin" && role !== "member") {
+    if (role !== "owner" && role !== "admin" && role !== "member") {
       return NextResponse.json({ error: "invalid role" }, { status: 400 });
     }
 
@@ -33,18 +52,17 @@ export async function POST(req: Request) {
     const userId = await getAuthUser(supabase);
     if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-    // Fetch profile to ensure user is admin and get tenant_id
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("role, tenant_id")
-      .eq("id", userId)
-      .single();
+    const membership = await getCurrentMembership(supabase, userId);
 
-    if (profileErr || !profile || profile.role !== "admin") {
+    if (!membership || !hasAdminAccess(membership.role)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    const tenantId = profile.tenant_id;
+    if (role === "owner" && !isOwner(membership.role)) {
+      return NextResponse.json({ error: "only owners can invite owners" }, { status: 403 });
+    }
+
+    const tenantId = membership.tenant_id;
 
     const token = genToken();
 
@@ -92,17 +110,13 @@ export async function GET(req: Request) {
     const userId = await getAuthUser(supabase);
     if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("role, tenant_id")
-      .eq("id", userId)
-      .single();
+    const membership = await getCurrentMembership(supabase, userId);
 
-    if (profileErr || !profile || profile.role !== "admin") {
+    if (!membership || !hasAdminAccess(membership.role)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    const tenantId = profile.tenant_id;
+    const tenantId = membership.tenant_id;
 
     const url = new URL(req.url);
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
@@ -143,17 +157,13 @@ export async function DELETE(req: Request) {
     const userId = await getAuthUser(supabase);
     if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("role, tenant_id")
-      .eq("id", userId)
-      .single();
+    const membership = await getCurrentMembership(supabase, userId);
 
-    if (profileErr || !profile || profile.role !== "admin") {
+    if (!membership || !hasAdminAccess(membership.role)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    const tenantId = profile.tenant_id;
+    const tenantId = membership.tenant_id;
 
     // Ensure invite belongs to this tenant
     const { data: existing, error: getErr } = await supabase

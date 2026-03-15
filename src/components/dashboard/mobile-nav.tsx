@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, Menu, Search, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import type { Profile } from "@/types";
 import { getDashboardNavItems, getDashboardToneClasses } from "./navigation";
+import { getRoleLabel, hasAdminAccess } from "@/lib/roles";
 
 interface MobileNavProps {
   profile: Profile | null;
@@ -24,7 +25,7 @@ interface MobileNavProps {
 export function MobileNav({ profile }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = hasAdminAccess(profile?.role);
 
   useEffect(() => {
     setOpen(false);
@@ -84,7 +85,7 @@ export function MobileNav({ profile }: MobileNavProps) {
                   className="gap-1 rounded-full border border-white/60 bg-white/70 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:text-slate-200"
                 >
                   <ShieldCheck className="h-3 w-3" />
-                  {isAdmin ? "Admin access" : "Member access"}
+                  {`${getRoleLabel(profile?.role)} access`}
                 </Badge>
                 <Badge
                   variant="secondary"

@@ -11,6 +11,7 @@ import {
   compareTendersForDigestPreview,
   getDigestPreviewTenders,
 } from "@/lib/tender-queries";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 
 export const metadata: Metadata = {
   title: "Digest Center | Procurement Radar SA",
@@ -19,19 +20,10 @@ export const metadata: Metadata = {
 
 export default async function DigestPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id, role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) redirect("/dashboard");
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  if (!workspace?.user) redirect("/auth/login");
+  if (!workspace.profile) redirect("/dashboard");
+  const profile = workspace.profile;
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -71,7 +63,7 @@ export default async function DigestPage() {
   const latestDigestStatus = latestDigest ? normalizeDigestStatus(latestDigest.status) : null;
   const hasActiveDigest =
     latestDigestStatus === "pending" || latestDigestStatus === "running";
-  const isAdmin = profile.role === "admin";
+  const isAdmin = workspace.hasAdminAccess;
 
   return (
     <div className="space-y-6">

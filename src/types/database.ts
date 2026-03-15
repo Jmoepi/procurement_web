@@ -1,6 +1,6 @@
 // Database types for Procurement Radar SA
 
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'owner' | 'admin' | 'member';
 export type SourceType = 'portal' | 'company';
 export type CrawlFrequency = 'daily' | 'weekly';
 export type TenderCategory =
@@ -35,6 +35,19 @@ export interface Profile {
   role: UserRole;
   full_name?: string;
   avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+  tenant?: Tenant;
+}
+
+export interface TenantMembership {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  role: UserRole;
+  is_primary: boolean;
+  is_active: boolean;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   tenant?: Tenant;

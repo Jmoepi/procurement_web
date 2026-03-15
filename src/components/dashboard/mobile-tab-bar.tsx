@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types";
 import { getDashboardMobileTabItems, getDashboardToneClasses } from "./navigation";
+import { hasAdminAccess } from "@/lib/roles";
 
 interface DashboardMobileTabBarProps {
   profile: Profile | null;
@@ -14,7 +15,7 @@ export function DashboardMobileTabBar({
   profile,
 }: DashboardMobileTabBarProps) {
   const pathname = usePathname();
-  const items = getDashboardMobileTabItems(profile?.role === "admin");
+  const items = getDashboardMobileTabItems(hasAdminAccess(profile?.role));
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.8rem+env(safe-area-inset-bottom))] md:hidden">

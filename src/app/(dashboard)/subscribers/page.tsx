@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SubscribersTable } from '@/components/subscribers/subscribers-table'
 import { AddSubscriberDialog } from '@/components/subscribers/add-subscriber-dialog'
+import { getCurrentWorkspaceContext } from '@/lib/current-workspace'
 
 export const metadata: Metadata = {
   title: 'Subscribers | Procurement Radar SA',
@@ -11,16 +12,9 @@ export const metadata: Metadata = {
 
 export default async function SubscribersPage() {
   const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  // Get user's profile to get tenant_id
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('tenant_id, role')
-    .eq('id', user.id)
-    .single()
+  const workspace = await getCurrentWorkspaceContext(supabase)
+  if (!workspace?.user) redirect('/auth/login')
+  const profile = workspace.profile
 
   if (!profile) redirect('/dashboard')
 

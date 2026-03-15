@@ -118,6 +118,7 @@ export default function InvitesPage() {
           <select id="role" className="w-full rounded-md border p-2" value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="member">Member</option>
             <option value="admin">Admin</option>
+            <option value="owner">Owner</option>
           </select>
         </div>
 

@@ -11,12 +11,13 @@ import {
   getSupabaseServerConfig,
   getSupabaseServiceRoleConfig,
 } from "@/lib/supabase/config";
+import { hasAdminAccess } from "@/lib/roles";
 
 export interface AuthContext {
   userId: string;
   email: string;
   tenantId: string;
-  role: "admin" | "member";
+  role: "owner" | "admin" | "member";
 }
 
 async function loadAuthContextForUser(userId: string, email?: string | null): Promise<AuthContext | null> {
@@ -25,26 +26,47 @@ async function loadAuthContextForUser(userId: string, email?: string | null): Pr
     auth: { persistSession: false },
   });
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("tenant_id, role")
-    .eq("id", userId)
-    .maybeSingle();
+  const [membershipResult, profileResult] = await Promise.all([
+    supabase
+      .from("tenant_memberships")
+      .select("tenant_id, role")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("tenant_id, role")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
 
-  if (error) {
-    console.error("Profile lookup failed during API auth", error);
+  if (membershipResult.error) {
+    console.error("Membership lookup failed during API auth", membershipResult.error);
     return null;
   }
 
-  if (!profile) {
+  if (profileResult.error) {
+    console.error("Profile lookup failed during API auth", profileResult.error);
+    return null;
+  }
+
+  const membership = membershipResult.data;
+  const profile = profileResult.data;
+  const tenantId = membership?.tenant_id ?? profile?.tenant_id;
+  const role = membership?.role ?? profile?.role ?? "member";
+
+  if (!tenantId) {
     return null;
   }
 
   return {
     userId,
     email: email || "",
-    tenantId: profile.tenant_id,
-    role: profile.role || "member",
+    tenantId,
+    role,
   };
 }
 
@@ -186,10 +208,10 @@ export async function requireAuth(request: Request) {
  * Middleware to require admin role
  */
 export function requireAdmin(auth: AuthContext): NextResponse | null {
-  if (auth.role !== "admin") {
+  if (!hasAdminAccess(auth.role)) {
     const [errorData, statusCode] = createErrorResponse(
       API_ERRORS.FORBIDDEN.code,
-      "Admin access required",
+      "Owner or admin access required",
       API_ERRORS.FORBIDDEN.statusCode
     );
     return toNextResponse(errorData, statusCode);

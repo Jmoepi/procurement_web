@@ -383,6 +383,57 @@ export type Database = {
           },
         ]
       }
+      tenant_memberships: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          is_primary: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       tender_documents: {
         Row: {
           created_at: string
@@ -707,11 +758,19 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      get_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
       is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_owner: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
@@ -738,7 +797,7 @@ export type Database = {
         | "it_hardware"
         | "general"
       tender_priority: "high" | "medium" | "low"
-      user_role: "admin" | "member"
+      user_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never

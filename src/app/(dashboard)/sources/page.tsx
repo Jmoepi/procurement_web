@@ -7,19 +7,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { getPlanLimitMessage } from "@/lib/plans";
 import type { Source, TenantStats } from "@/types";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 
 export default async function SourcesPage() {
   const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id, role, tenant:tenants(*)")
-    .eq("id", user?.id ?? "")
-    .single();
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  const profile = workspace?.profile ?? null;
 
   // Only admins can access this page
-  if (profile?.role !== "admin") {
+  if (!workspace?.hasAdminAccess || !profile) {
     redirect("/dashboard");
   }
 

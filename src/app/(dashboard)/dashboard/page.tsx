@@ -26,6 +26,7 @@ import {
   getRecentTenantTenders,
   type TenderSummaryItem,
 } from "@/lib/tender-queries";
+import { getCurrentWorkspaceContext } from "@/lib/current-workspace";
 import { formatDateShort, formatDaysRemaining, getCategoryColor, getPriorityColor } from "@/lib/utils";
 import type { PlanType, Tender, TenantStats } from "@/types";
 
@@ -53,18 +54,9 @@ type TenantInfo = {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id, full_name")
-    .eq("id", user?.id ?? "")
-    .single();
-
-  const tenantId = profile?.tenant_id ?? "";
+  const workspace = await getCurrentWorkspaceContext(supabase);
+  const profile = workspace?.profile ?? null;
+  const tenantId = workspace?.tenantId ?? "";
 
   const [
     statsResult,
