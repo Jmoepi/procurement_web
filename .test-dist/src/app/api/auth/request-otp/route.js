@@ -30,6 +30,13 @@ function hashCode(code) {
     }
     return crypto_1.default.createHash("sha256").update(code).digest("hex");
 }
+function getDatabaseErrorMessage(error) {
+    const message = error?.message?.toLowerCase() ?? "";
+    if (message.includes("email_otps")) {
+        return "OTP storage is not available. Apply the latest Supabase migrations and try again.";
+    }
+    return error?.message ?? "Database request failed.";
+}
 async function POST(req) {
     try {
         const rateLimit = await otpRequestLimiter((0, rate_limiter_1.getClientIdentifier)(req));
@@ -55,7 +62,8 @@ async function POST(req) {
             .limit(1)
             .maybeSingle();
         if (latestOtpError) {
-            return server_1.NextResponse.json({ error: latestOtpError.message }, { status: 500 });
+            console.error("OTP latest lookup failed", latestOtpError);
+            return server_1.NextResponse.json({ error: getDatabaseErrorMessage(latestOtpError) }, { status: 500 });
         }
         const now = Date.now();
         if (latestOtp?.created_at &&
@@ -66,11 +74,15 @@ async function POST(req) {
                 retry_after_seconds: retryAfterSeconds,
             }, { status: 429 });
         }
-        await supabase
+        const { error: invalidateError } = await supabase
             .from("email_otps")
             .update({ used: true })
             .eq("email", email)
             .eq("used", false);
+        if (invalidateError) {
+            console.error("OTP invalidate failed", invalidateError);
+            return server_1.NextResponse.json({ error: getDatabaseErrorMessage(invalidateError) }, { status: 500 });
+        }
         const code = genCode();
         const code_hash = hashCode(code);
         const expiresAt = new Date(now + OTP_TTL_MS).toISOString();
@@ -85,24 +97,34 @@ async function POST(req) {
             .select("id")
             .single();
         if (insertErr) {
-            return server_1.NextResponse.json({ error: insertErr.message }, { status: 500 });
+            console.error("OTP insert failed", insertErr);
+            return server_1.NextResponse.json({ error: getDatabaseErrorMessage(insertErr) }, { status: 500 });
         }
         try {
-            await (0, email_1.sendTransactionalEmail)({
+            const delivery = await (0, email_1.sendTransactionalEmail)({
                 to: email,
                 subject: "Your verification code",
                 text: `Your verification code is: ${code}. It expires in 15 minutes.`,
+            });
+            return server_1.NextResponse.json({
+                ok: true,
+                cooldown_seconds: OTP_COOLDOWN_MS / 1000,
+                delivery: delivery.provider,
+                ...(delivery.provider === "console" && process.env.NODE_ENV !== "production"
+                    ? {
+                        dev_code: code,
+                        message: "Email delivery fell back to console mode in development. Check the server logs for the OTP.",
+                    }
+                    : {}),
             });
         }
         catch (error) {
             await supabase.from("email_otps").delete().eq("id", otpRecord.id);
             console.error("OTP email send error", error);
-            return server_1.NextResponse.json({ error: "Failed to send verification code. Please try again." }, { status: 500 });
+            return server_1.NextResponse.json({
+                error: "Failed to send verification code. Check your Resend API key and verified sender address.",
+            }, { status: 500 });
         }
-        return server_1.NextResponse.json({
-            ok: true,
-            cooldown_seconds: OTP_COOLDOWN_MS / 1000,
-        });
     }
     catch (err) {
         return server_1.NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

@@ -151,8 +151,10 @@ export default function VerifyOTPPage() {
 
       setCountdown(60);
       toast({
-        title: "Code resent",
-        description: "A new verification code has been sent to your email.",
+        title: data?.delivery === "console" ? "Code regenerated" : "Code resent",
+        description:
+          data?.message ||
+          "A new verification code has been sent to your email.",
       });
     } catch (error) {
       toast.error("Failed to resend", {

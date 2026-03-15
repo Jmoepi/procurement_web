@@ -67,7 +67,12 @@ export function AuthForm({ mode }: AuthFormProps) {
         sessionStorage.setItem('signup_full_name', fullName);
         if (inviteToken) sessionStorage.setItem('signup_invite_token', inviteToken);
 
-        toast({ title: 'Verification code sent!', description: 'Please check your email for the 6-digit code.' });
+        toast({
+          title: data?.delivery === "console" ? "Verification code generated" : "Verification code sent!",
+          description:
+            data?.message ||
+            'Please check your email for the 6-digit code.',
+        });
         router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
       } else {
         const { error } = await supabase.auth.signInWithPassword({

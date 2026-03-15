@@ -17,6 +17,9 @@ type OtpSuccessResponse = {
   cooldown_seconds?: number
   created?: boolean
   error?: string
+  delivery?: "resend" | "console"
+  dev_code?: string
+  message?: string
 }
 
 test.afterEach(() => {
@@ -114,6 +117,7 @@ test("POST /api/auth/request-otp stores an OTP and sends email", async () => {
       text: string
     }) {
       sentEmails.push(message)
+      return { delivered: true, provider: "resend" as const }
     },
   })
   mockModule("@/lib/supabase/config", {
@@ -141,6 +145,67 @@ test("POST /api/auth/request-otp stores an OTP and sends email", async () => {
   const body = await readJson<OtpSuccessResponse>(response)
   assert.equal(body.ok, true)
   assert.equal(body.cooldown_seconds, 60)
+  assert.equal(body.delivery, "resend")
+})
+
+test("POST /api/auth/request-otp returns console delivery metadata when email falls back locally", async () => {
+  const nextServer = createNextServerMock()
+  const rateLimiter = createRateLimiterMock({ allowed: true, remaining: 4 })
+  const supabase = createSupabaseMock([
+    {
+      result: { data: null, error: null },
+    },
+    {
+      result: { data: null, error: null },
+    },
+    {
+      result: { data: { id: "otp-1" }, error: null },
+    },
+  ])
+
+  mockModule("next/server", nextServer.module)
+  mockModule("@/lib/rate-limiter", rateLimiter.module)
+  mockModule("@supabase/supabase-js", supabase.module)
+  mockModule("@/lib/email", {
+    async sendTransactionalEmail() {
+      return {
+        delivered: false,
+        provider: "console" as const,
+        reason: "email provider not configured",
+      }
+    },
+  })
+  mockModule("@/lib/supabase/config", {
+    getSupabaseServiceRoleConfig() {
+      return { url: "https://example.supabase.co", serviceRoleKey: "service-role" }
+    },
+  })
+
+  const previousEnv = process.env.NODE_ENV
+  ;(process.env as Record<string, string | undefined>).NODE_ENV = "development"
+
+  try {
+    const route = loadFreshModule<{
+      POST(request: Request): Promise<Response>
+    }>("src/app/api/auth/request-otp/route")
+
+    const response = await route.POST(
+      createJsonRequest("http://localhost/api/auth/request-otp", {
+        method: "POST",
+        body: { email: "person@example.com" },
+      })
+    )
+
+    assert.equal(response.status, 200)
+
+    const body = await readJson<OtpSuccessResponse>(response)
+    assert.equal(body.ok, true)
+    assert.equal(body.delivery, "console")
+    assert.equal(typeof body.dev_code, "string")
+    assert.equal(body.dev_code?.length, 6)
+  } finally {
+    ;(process.env as Record<string, string | undefined>).NODE_ENV = previousEnv
+  }
 })
 
 test("POST /api/auth/verify-otp creates an account after a valid code", async () => {

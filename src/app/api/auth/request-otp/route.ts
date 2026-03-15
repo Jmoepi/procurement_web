@@ -38,6 +38,16 @@ function hashCode(code: string) {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
 
+function getDatabaseErrorMessage(error: { message?: string } | null) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  if (message.includes("email_otps")) {
+    return "OTP storage is not available. Apply the latest Supabase migrations and try again.";
+  }
+
+  return error?.message ?? "Database request failed.";
+}
+
 export async function POST(req: Request) {
   try {
     const rateLimit = await otpRequestLimiter(getClientIdentifier(req));
@@ -71,7 +81,11 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (latestOtpError) {
-      return NextResponse.json({ error: latestOtpError.message }, { status: 500 });
+      console.error("OTP latest lookup failed", latestOtpError);
+      return NextResponse.json(
+        { error: getDatabaseErrorMessage(latestOtpError) },
+        { status: 500 }
+      );
     }
 
     const now = Date.now();
@@ -92,11 +106,19 @@ export async function POST(req: Request) {
       );
     }
 
-    await supabase
+    const { error: invalidateError } = await supabase
       .from("email_otps")
       .update({ used: true })
       .eq("email", email)
       .eq("used", false);
+
+    if (invalidateError) {
+      console.error("OTP invalidate failed", invalidateError);
+      return NextResponse.json(
+        { error: getDatabaseErrorMessage(invalidateError) },
+        { status: 500 }
+      );
+    }
 
     const code = genCode();
     const code_hash = hashCode(code);
@@ -114,28 +136,43 @@ export async function POST(req: Request) {
       .single();
 
     if (insertErr) {
-      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      console.error("OTP insert failed", insertErr);
+      return NextResponse.json(
+        { error: getDatabaseErrorMessage(insertErr) },
+        { status: 500 }
+      );
     }
 
     try {
-      await sendTransactionalEmail({
+      const delivery = await sendTransactionalEmail({
         to: email,
         subject: "Your verification code",
         text: `Your verification code is: ${code}. It expires in 15 minutes.`,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        cooldown_seconds: OTP_COOLDOWN_MS / 1000,
+        delivery: delivery.provider,
+        ...(delivery.provider === "console" && process.env.NODE_ENV !== "production"
+          ? {
+              dev_code: code,
+              message:
+                "Email delivery fell back to console mode in development. Check the server logs for the OTP.",
+            }
+          : {}),
       });
     } catch (error) {
       await supabase.from("email_otps").delete().eq("id", otpRecord.id);
       console.error("OTP email send error", error);
       return NextResponse.json(
-        { error: "Failed to send verification code. Please try again." },
+        {
+          error:
+            "Failed to send verification code. Check your Resend API key and verified sender address.",
+        },
         { status: 500 }
       );
     }
-
-    return NextResponse.json({
-      ok: true,
-      cooldown_seconds: OTP_COOLDOWN_MS / 1000,
-    });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
   }

@@ -32,6 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     timeout-minutes: 15
+    concurrency:
+      group: digest-dispatcher
+      cancel-in-progress: false
 
     steps:
       - name: Trigger digest dispatcher
@@ -60,6 +63,18 @@ jobs:
           MAX_RETRIES="${INPUT_MAX_RETRIES:-2}"
           RECOVER_ONLY="${INPUT_RECOVER_ONLY:-false}"
 
+          case "$LIMIT" in
+            ''|*[!0-9]*) echo "Invalid limit: $LIMIT"; exit 1 ;;
+          esac
+
+          case "$STALE_MINUTES" in
+            ''|*[!0-9]*) echo "Invalid stale_minutes: $STALE_MINUTES"; exit 1 ;;
+          esac
+
+          case "$MAX_RETRIES" in
+            ''|*[!0-9]*) echo "Invalid max_retries: $MAX_RETRIES"; exit 1 ;;
+          esac
+
           if [ "$RECOVER_ONLY" = "true" ]; then
             BODY=$(printf '{"recoverOnly": true, "staleMinutes": %s, "maxRetries": %s}' "$STALE_MINUTES" "$MAX_RETRIES")
           else
@@ -68,9 +83,11 @@ jobs:
 
           echo "Dispatch payload: $BODY"
 
-          curl --fail-with-body --silent --show-error \
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
             --request POST \
             --url "${APP_BASE_URL%/}/api/internal/digests/dispatch" \
             --header "Content-Type: application/json" \
             --header "Authorization: Bearer ${DIGEST_JOB_SECRET}" \
-            --data "$BODY"
+            --data "$BODY")
+
+          echo "Dispatcher response: $RESPONSE"

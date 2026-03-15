@@ -82,6 +82,7 @@ node_test_1.default.afterEach(() => {
     (0, test_runtime_1.mockModule)("@/lib/email", {
         async sendTransactionalEmail(message) {
             sentEmails.push(message);
+            return { delivered: true, provider: "resend" };
         },
     });
     (0, test_runtime_1.mockModule)("@/lib/supabase/config", {
@@ -101,6 +102,58 @@ node_test_1.default.afterEach(() => {
     const body = await (0, test_runtime_1.readJson)(response);
     strict_1.default.equal(body.ok, true);
     strict_1.default.equal(body.cooldown_seconds, 60);
+    strict_1.default.equal(body.delivery, "resend");
+});
+(0, node_test_1.default)("POST /api/auth/request-otp returns console delivery metadata when email falls back locally", async () => {
+    const nextServer = (0, test_runtime_1.createNextServerMock)();
+    const rateLimiter = (0, test_runtime_1.createRateLimiterMock)({ allowed: true, remaining: 4 });
+    const supabase = (0, test_runtime_1.createSupabaseMock)([
+        {
+            result: { data: null, error: null },
+        },
+        {
+            result: { data: null, error: null },
+        },
+        {
+            result: { data: { id: "otp-1" }, error: null },
+        },
+    ]);
+    (0, test_runtime_1.mockModule)("next/server", nextServer.module);
+    (0, test_runtime_1.mockModule)("@/lib/rate-limiter", rateLimiter.module);
+    (0, test_runtime_1.mockModule)("@supabase/supabase-js", supabase.module);
+    (0, test_runtime_1.mockModule)("@/lib/email", {
+        async sendTransactionalEmail() {
+            return {
+                delivered: false,
+                provider: "console",
+                reason: "email provider not configured",
+            };
+        },
+    });
+    (0, test_runtime_1.mockModule)("@/lib/supabase/config", {
+        getSupabaseServiceRoleConfig() {
+            return { url: "https://example.supabase.co", serviceRoleKey: "service-role" };
+        },
+    });
+    const previousEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+        const route = (0, test_runtime_1.loadFreshModule)("src/app/api/auth/request-otp/route");
+        const response = await route.POST((0, test_runtime_1.createJsonRequest)("http://localhost/api/auth/request-otp", {
+            method: "POST",
+            body: { email: "person@example.com" },
+        }));
+        strict_1.default.equal(response.status, 200);
+        const body = await (0, test_runtime_1.readJson)(response);
+        strict_1.default.equal(body.ok, true);
+        strict_1.default.equal(body.delivery, "console");
+        strict_1.default.equal(typeof body.dev_code, "string");
+        strict_1.default.equal(body.dev_code?.length, 6);
+    }
+    finally {
+        ;
+        process.env.NODE_ENV = previousEnv;
+    }
 });
 (0, node_test_1.default)("POST /api/auth/verify-otp creates an account after a valid code", async () => {
     const nextServer = (0, test_runtime_1.createNextServerMock)();
