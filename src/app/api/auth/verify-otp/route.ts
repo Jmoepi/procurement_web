@@ -67,13 +67,13 @@ export async function POST(req: Request) {
     const { email, code, password, full_name, invite_token } = parsed.data;
     const supabase = getSupabaseAdmin();
     const now = new Date().toISOString();
-    const code_hash = hashCode(code);
+    const codeHash = hashCode(code);
 
     const { data: otpRow, error } = await supabase
       .from("email_otps")
       .select("id")
       .eq("email", email)
-      .eq("code_hash", code_hash)
+      .eq("code", codeHash)
       .eq("used", false)
       .gt("expires_at", now)
       .order("created_at", { ascending: false })

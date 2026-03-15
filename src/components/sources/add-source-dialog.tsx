@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/lib/sonner";
 import { Plus, Loader2 } from "lucide-react";
+import { authenticatedJsonFetch } from "@/lib/authenticated-fetch";
 
 interface AddSourceDialogProps {
   tenantId: string;
@@ -40,23 +40,21 @@ export function AddSourceDialog({ tenantId }: AddSourceDialogProps) {
   const [tags, setTags] = useState("");
   
   const router = useRouter();
-  const supabase = createClient();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("sources").insert({
-        tenant_id: tenantId,
-        name,
-        url,
-        type,
-        requires_js: requiresJs,
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      await authenticatedJsonFetch("/api/sources", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          url,
+          type,
+          requires_js: requiresJs,
+          tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        }),
       });
-
-      if (error) throw error;
 
       toast.success("Source added", {
         description: "The source will be crawled in the next scheduled run.",
@@ -75,6 +73,10 @@ export function AddSourceDialog({ tenantId }: AddSourceDialogProps) {
       setLoading(false);
     }
   };
+
+  if (!tenantId) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -35,9 +35,19 @@ function getEmailTransportMode() {
   return "auto"
 }
 
-function shouldAllowConsoleFallback() {
+function shouldAllowConsoleFallbackForMissingConfig() {
   const mode = getEmailTransportMode()
   return mode === "console" || (mode === "auto" && process.env.NODE_ENV !== "production")
+}
+
+function shouldAllowConsoleFallbackForSendFailure() {
+  const mode = getEmailTransportMode()
+
+  if (mode === "console") {
+    return true
+  }
+
+  return process.env.EMAIL_ALLOW_CONSOLE_FALLBACK === "true"
 }
 
 function logConsoleEmail({
@@ -64,10 +74,11 @@ export async function sendTransactionalEmail({
   html,
 }: SendEmailOptions): Promise<EmailDeliveryResult> {
   const { apiKey, from } = getEmailConfig()
-  const allowConsoleFallback = shouldAllowConsoleFallback()
+  const allowMissingConfigConsoleFallback = shouldAllowConsoleFallbackForMissingConfig()
+  const allowSendFailureConsoleFallback = shouldAllowConsoleFallbackForSendFailure()
 
   if (!apiKey || !from) {
-    if (allowConsoleFallback) {
+    if (allowMissingConfigConsoleFallback) {
       const reason = "email provider not configured"
       logConsoleEmail({ to, subject, text, html, reason })
       return {
@@ -101,7 +112,7 @@ export async function sendTransactionalEmail({
       throw new Error(`Resend email failed (${response.status}): ${body}`)
     }
   } catch (error) {
-    if (allowConsoleFallback) {
+    if (allowSendFailureConsoleFallback) {
       const reason =
         error instanceof Error ? error.message : "unknown email transport error"
       logConsoleEmail({ to, subject, text, html, reason })

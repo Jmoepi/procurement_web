@@ -41,6 +41,10 @@ export function AuthForm({ mode }: AuthFormProps) {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const inviteToken = searchParams?.get("invite") ?? undefined;
+  const emailRedirectTo =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard")}`
+      : undefined;
 
   const passwordStrength = getPasswordStrength(password);
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -51,29 +55,29 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       if (mode === "signup") {
-        // Request server to generate and send OTP. We'll store password locally until verification.
-        const res = await fetch('/api/auth/request-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, full_name: fullName }),
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo,
+            data: {
+              full_name: fullName,
+              ...(inviteToken ? { invite_token: inviteToken } : {}),
+            },
+          },
         });
+        if (error) throw error;
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || 'Failed to request verification code');
+        if (data.session) {
+          router.push("/dashboard");
+          router.refresh();
+          return;
+        }
 
-        // Store email/password/fullName/inviteToken temporarily in sessionStorage until verification
-        sessionStorage.setItem('verification_email', email);
-        sessionStorage.setItem('signup_password', password);
-        sessionStorage.setItem('signup_full_name', fullName);
-        if (inviteToken) sessionStorage.setItem('signup_invite_token', inviteToken);
-
-        toast({
-          title: data?.delivery === "console" ? "Verification code generated" : "Verification code sent!",
-          description:
-            data?.message ||
-            'Please check your email for the 6-digit code.',
+        toast.success("Check your email", {
+          description: "We sent you a 6-digit verification code to finish creating your account.",
         });
-        router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
+        router.push(`/auth/verify?email=${encodeURIComponent(email)}&mode=signup`);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,

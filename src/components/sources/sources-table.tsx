@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   Table,
   TableBody,
@@ -24,6 +23,7 @@ import { toast } from "@/lib/sonner";
 import { ExternalLink, MoreHorizontal, Trash2, Edit } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 import type { Source } from "@/types";
+import { authenticatedJsonFetch } from "@/lib/authenticated-fetch";
 
 interface SourcesTableProps {
   sources: Source[];
@@ -32,17 +32,14 @@ interface SourcesTableProps {
 export function SourcesTable({ sources }: SourcesTableProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
 
   const toggleEnabled = async (source: Source) => {
     setLoadingId(source.id);
     try {
-      const { error } = await supabase
-        .from("sources")
-        .update({ enabled: !source.enabled })
-        .eq("id", source.id);
-
-      if (error) throw error;
+      await authenticatedJsonFetch(`/api/sources/${source.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled: !source.enabled }),
+      });
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update source");
@@ -56,8 +53,9 @@ export function SourcesTable({ sources }: SourcesTableProps) {
     
     setLoadingId(id);
     try {
-      const { error } = await supabase.from("sources").delete().eq("id", id);
-      if (error) throw error;
+      await authenticatedJsonFetch(`/api/sources/${id}`, {
+        method: "DELETE",
+      });
       
       toast.success("Source deleted", {
         description: "The source has been removed.",

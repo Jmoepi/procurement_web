@@ -25,6 +25,7 @@ const CreateSourceSchema = z.object({
   type: z.enum(["portal", "company"]),
   requires_js: z.boolean().optional().default(false),
   crawl_frequency: z.enum(["daily", "weekly"]).optional().default("daily"),
+  tags: z.array(z.string()).optional(),
   categories: z.array(z.string()).optional(),
 });
 
@@ -219,6 +220,7 @@ export async function POST(request: NextRequest) {
         type: validation.data.type,
         requires_js: validation.data.requires_js,
         crawl_frequency: validation.data.crawl_frequency,
+        tags: validation.data.tags ?? [],
         categories: validation.data.categories ?? [],
       })
       .select("*")

@@ -6,6 +6,7 @@ import { getSupabaseServerConfig } from "@/lib/supabase/config";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const next = url.searchParams.get("next");
   const origin = url.origin;
 
   if (!code) return NextResponse.redirect(`${origin}/auth/login`);
@@ -36,5 +37,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/auth/login?error=callback_failed`);
   }
 
-  return NextResponse.redirect(`${origin}/dashboard`);
+  const redirectPath = next && next.startsWith("/") ? next : "/dashboard";
+  return NextResponse.redirect(`${origin}${redirectPath}`);
 }

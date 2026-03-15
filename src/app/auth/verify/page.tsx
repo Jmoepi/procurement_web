@@ -1,133 +1,113 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/lib/sonner";
-import { Loader2, Mail, ArrowLeft, RefreshCw, CheckCircle } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, CheckCircle, Loader2, Mail, RefreshCw } from "lucide-react";
 
-export default function VerifyOTPPage() {
+export default function VerifyOtpPage() {
+  return (
+    <Suspense fallback={<VerifyOtpFallback />}>
+      <VerifyOtpContent />
+    </Suspense>
+  );
+}
+
+function VerifyOtpContent() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [email, setEmail] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [verified, setVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    // Get email from URL params or session storage
-    const params = new URLSearchParams(window.location.search);
-    const emailParam = params.get("email");
+    const emailParam = searchParams?.get("email");
     if (emailParam) {
       setEmail(emailParam);
-    } else {
-      const storedEmail = sessionStorage.getItem("verification_email");
-      if (storedEmail) {
-        setEmail(storedEmail);
-      }
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
+    if (countdown <= 0) {
+      return undefined;
     }
-    return undefined;
+
+    const timer = setTimeout(() => setCountdown((current) => current - 1), 1000);
+    return () => clearTimeout(timer);
   }, [countdown]);
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) {
-      // Handle paste
       const digits = value.replace(/\D/g, "").slice(0, 6).split("");
-      const newOtp = [...otp];
-      digits.forEach((digit, i) => {
-        if (index + i < 6) {
-          newOtp[index + i] = digit;
+      const nextOtp = [...otp];
+      digits.forEach((digit, offset) => {
+        if (index + offset < 6) {
+          nextOtp[index + offset] = digit;
         }
       });
-      setOtp(newOtp);
-      const nextIndex = Math.min(index + digits.length, 5);
-      inputRefs.current[nextIndex]?.focus();
-    } else {
-      const newOtp = [...otp];
-      newOtp[index] = value.replace(/\D/g, "");
-      setOtp(newOtp);
-      
-      if (value && index < 5) {
-        inputRefs.current[index + 1]?.focus();
-      }
+      setOtp(nextOtp);
+      inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
+      return;
+    }
+
+    const nextOtp = [...otp];
+    nextOtp[index] = value.replace(/\D/g, "");
+    setOtp(nextOtp);
+
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
+  const handleKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   const handleVerify = async () => {
     const code = otp.join("");
-    if (code.length !== 6) {
+    if (!email || code.length !== 6) {
       toast.error("Invalid code", {
-        description: "Please enter the complete 6-digit code.",
+        description: "Enter the full 6-digit code from your email.",
       });
       return;
     }
 
     setLoading(true);
     try {
-      const storedPassword = sessionStorage.getItem('signup_password');
-      const storedFullName = sessionStorage.getItem('signup_full_name') || '';
-      const storedInvite = sessionStorage.getItem('signup_invite_token') || undefined;
-      if (!storedPassword) throw new Error('Signup state missing. Please re-start signup.');
-
-      // Verify OTP and create the user on the server
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          code,
-          password: storedPassword,
-          full_name: storedFullName,
-          invite_token: storedInvite,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Invalid or expired code');
-
-      // Establish a client session after server-side account creation
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.verifyOtp({
         email,
-        password: storedPassword,
+        token: code,
+        type: "signup",
       });
 
-      if (signInErr) throw signInErr;
+      if (error) {
+        throw error;
+      }
 
       setVerified(true);
-      toast({ title: 'Email verified!', description: 'Your account has been created.' });
-
-      // clear temporary signup state
-      sessionStorage.removeItem('verification_email');
-      sessionStorage.removeItem('signup_password');
-      sessionStorage.removeItem('signup_full_name');
-      sessionStorage.removeItem('signup_invite_token');
+      toast.success("Email verified", {
+        description: "Your account is active. Redirecting to the dashboard.",
+      });
 
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push("/dashboard");
         router.refresh();
-      }, 1500);
+      }, 1200);
     } catch (error) {
       toast.error("Verification failed", {
-        description: error instanceof Error ? error.message : "Invalid or expired code. Please try again.",
+        description: error instanceof Error ? error.message : "The code is invalid or expired.",
       });
       setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
@@ -137,40 +117,39 @@ export default function VerifyOTPPage() {
   };
 
   const handleResend = async () => {
-    if (countdown > 0) return;
-    
+    if (!email || countdown > 0) {
+      return;
+    }
+
     setResending(true);
     try {
-      const res = await fetch('/api/auth/request-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Could not resend code');
+
+      if (error) {
+        throw error;
+      }
 
       setCountdown(60);
-      toast({
-        title: data?.delivery === "console" ? "Code regenerated" : "Code resent",
-        description:
-          data?.message ||
-          "A new verification code has been sent to your email.",
+      toast.success("Code resent", {
+        description: "A new 6-digit code has been sent to your email.",
       });
     } catch (error) {
-      toast.error("Failed to resend", {
-        description: error instanceof Error ? error.message : "Could not resend code. Please try again.",
+      toast.error("Failed to resend code", {
+        description: error instanceof Error ? error.message : "Please try again.",
       });
     } finally {
       setResending(false);
     }
   };
 
-  // Auto-submit when all digits are entered
   useEffect(() => {
     if (otp.every((digit) => digit !== "") && !loading && !verified) {
       handleVerify();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp, loading, verified]);
 
   if (verified) {
@@ -178,13 +157,11 @@ export default function VerifyOTPPage() {
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-10 pb-10">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mx-auto mb-4 animate-scale-in">
-              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mx-auto mb-4">
+              <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Email Verified!</h2>
-            <p className="text-muted-foreground mb-4">
-              Redirecting you to your dashboard...
-            </p>
+            <h2 className="text-2xl font-bold mb-2">Email verified</h2>
+            <p className="text-muted-foreground mb-4">Redirecting you to your dashboard...</p>
             <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
           </CardContent>
         </Card>
@@ -209,25 +186,24 @@ export default function VerifyOTPPage() {
             </div>
             <CardTitle className="text-2xl">Check your email</CardTitle>
             <CardDescription className="text-base">
-              We&apos;ve sent a 6-digit verification code to
-              {email && (
-                <span className="block font-medium text-foreground mt-1">{email}</span>
-              )}
+              Enter the 6-digit code Supabase sent to
+              {email ? <span className="block font-medium text-foreground mt-1">{email}</span> : null}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* OTP Input */}
             <div className="flex justify-center gap-2 sm:gap-3">
               {otp.map((digit, index) => (
                 <Input
                   key={index}
-                  ref={(el) => { inputRefs.current[index] = el; }}
+                  ref={(element) => {
+                    inputRefs.current[index] = element;
+                  }}
                   type="text"
                   inputMode="numeric"
                   maxLength={6}
                   value={digit}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  onChange={(event) => handleChange(index, event.target.value)}
+                  onKeyDown={(event) => handleKeyDown(index, event)}
                   className="w-11 h-12 sm:w-12 sm:h-14 text-center text-xl font-semibold"
                   disabled={loading}
                   autoFocus={index === 0}
@@ -235,10 +211,9 @@ export default function VerifyOTPPage() {
               ))}
             </div>
 
-            {/* Verify Button */}
             <Button
               onClick={handleVerify}
-              disabled={loading || otp.some((d) => !d)}
+              disabled={loading || otp.some((digit) => !digit)}
               className="w-full h-11"
             >
               {loading ? (
@@ -251,14 +226,11 @@ export default function VerifyOTPPage() {
               )}
             </Button>
 
-            {/* Resend */}
             <div className="text-center text-sm">
               <p className="text-muted-foreground">
                 Didn&apos;t receive the code?{" "}
                 {countdown > 0 ? (
-                  <span className="text-muted-foreground">
-                    Resend in {countdown}s
-                  </span>
+                  <span>Resend in {countdown}s</span>
                 ) : (
                   <button
                     onClick={handleResend}
@@ -280,14 +252,22 @@ export default function VerifyOTPPage() {
                 )}
               </p>
             </div>
-
-            {/* Help text */}
-            <p className="text-xs text-center text-muted-foreground">
-              Make sure to check your spam folder if you don&apos;t see the email.
-            </p>
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function VerifyOtpFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex items-center justify-center gap-3 py-10">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Loading verification page...</span>
+        </CardContent>
+      </Card>
     </div>
   );
 }

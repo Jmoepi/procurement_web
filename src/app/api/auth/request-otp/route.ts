@@ -17,6 +17,11 @@ const OTP_COOLDOWN_MS = 60 * 1000;
 const OTP_TTL_MS = 15 * 60 * 1000;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function isExplicitConsoleEmailMode() {
+  const mode = (process.env.EMAIL_TRANSPORT || "auto").trim().toLowerCase();
+  return mode === "console" || mode === "log";
+}
+
 function getSupabaseAdmin() {
   const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
 
@@ -42,7 +47,7 @@ function getDatabaseErrorMessage(error: { message?: string } | null) {
   const message = error?.message?.toLowerCase() ?? "";
 
   if (message.includes("email_otps")) {
-    return "OTP storage is not available. Apply the latest Supabase migrations and try again.";
+    return "OTP storage is not available because the email_otps schema does not match the app.";
   }
 
   return error?.message ?? "Database request failed.";
@@ -121,15 +126,14 @@ export async function POST(req: Request) {
     }
 
     const code = genCode();
-    const code_hash = hashCode(code);
+    const codeHash = hashCode(code);
     const expiresAt = new Date(now + OTP_TTL_MS).toISOString();
 
     const { data: otpRecord, error: insertErr } = await supabase
       .from("email_otps")
       .insert({
         email,
-        code,
-        code_hash,
+        code: codeHash,
         expires_at: expiresAt,
       })
       .select("id")
@@ -149,6 +153,19 @@ export async function POST(req: Request) {
         subject: "Your verification code",
         text: `Your verification code is: ${code}. It expires in 15 minutes.`,
       });
+
+      if (!delivery.delivered && !isExplicitConsoleEmailMode()) {
+        await supabase.from("email_otps").delete().eq("id", otpRecord.id);
+
+        return NextResponse.json(
+          {
+            error:
+              delivery.reason ??
+              "Verification email was not delivered. Check your Resend domain and sender configuration.",
+          },
+          { status: 502 }
+        );
+      }
 
       return NextResponse.json({
         ok: true,
