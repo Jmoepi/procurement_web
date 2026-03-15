@@ -7,6 +7,10 @@ import { DigestHistory } from "@/components/digest/digest-history";
 import { DigestPreview } from "@/components/digest/digest-preview";
 import { DigestQueueAction } from "@/components/digest/digest-queue-action";
 import { normalizeDigestStatus } from "@/lib/digests";
+import {
+  compareTendersForDigestPreview,
+  getDigestPreviewTenders,
+} from "@/lib/tender-queries";
 
 export const metadata: Metadata = {
   title: "Digest Center | Procurement Radar SA",
@@ -23,7 +27,7 @@ export default async function DigestPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("tenant_id")
+    .select("tenant_id, role")
     .eq("id", user.id)
     .single();
 
@@ -34,15 +38,7 @@ export default async function DigestPage() {
 
   const [recentTendersResult, digestHistoryResult, tenantResult, subscribersResult] =
     await Promise.all([
-      supabase
-        .from("tenders")
-        .select("*, source:sources(name)")
-        .eq("tenant_id", profile.tenant_id)
-        .eq("expired", false)
-        .gte("first_seen", yesterday.toISOString())
-        .order("priority", { ascending: false })
-        .order("closing_at", { ascending: true })
-        .limit(20),
+      getDigestPreviewTenders(supabase, profile.tenant_id, yesterday.toISOString(), 20),
       supabase
         .from("digest_runs")
         .select("id, tenant_id, run_date, status, tenders_found, emails_sent, started_at, finished_at, error_message, metadata, created_at")
@@ -61,9 +57,7 @@ export default async function DigestPage() {
         .eq("is_active", true),
     ]);
 
-  const recentTenders = (recentTendersResult.data || []).sort(
-    (left, right) => getPriorityRank(right.priority) - getPriorityRank(left.priority)
-  );
+  const recentTenders = [...(recentTendersResult.data || [])].sort(compareTendersForDigestPreview);
   const digestHistory = digestHistoryResult.data || [];
   const tenant = tenantResult.data;
   const activeRecipients = subscribersResult.count ?? 0;
@@ -77,6 +71,7 @@ export default async function DigestPage() {
   const latestDigestStatus = latestDigest ? normalizeDigestStatus(latestDigest.status) : null;
   const hasActiveDigest =
     latestDigestStatus === "pending" || latestDigestStatus === "running";
+  const isAdmin = profile.role === "admin";
 
   return (
     <div className="space-y-6">
@@ -122,7 +117,7 @@ export default async function DigestPage() {
                 </Badge>
               ) : null}
             </div>
-            <DigestQueueAction hasActiveDigest={hasActiveDigest} />
+            <DigestQueueAction hasActiveDigest={hasActiveDigest} isAdmin={isAdmin} />
           </div>
         </div>
       </section>
@@ -147,16 +142,9 @@ export default async function DigestPage() {
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
-          <DigestHistory digests={digestHistory} />
+          <DigestHistory digests={digestHistory} isAdmin={isAdmin} />
         </TabsContent>
       </Tabs>
     </div>
   );
-}
-
-function getPriorityRank(priority: string) {
-  if (priority === "high") return 3;
-  if (priority === "medium") return 2;
-  if (priority === "low") return 1;
-  return 0;
 }

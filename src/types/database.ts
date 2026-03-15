@@ -3,7 +3,14 @@
 export type UserRole = 'admin' | 'member';
 export type SourceType = 'portal' | 'company';
 export type CrawlFrequency = 'daily' | 'weekly';
-export type TenderCategory = 'courier' | 'printing' | 'both' | 'other';
+export type TenderCategory =
+  | 'courier'
+  | 'printing'
+  | 'logistics'
+  | 'stationery'
+  | 'it_hardware'
+  | 'general';
+export type TenderCategoryFilter = TenderCategory | 'both' | 'other';
 export type TenderPriority = 'high' | 'medium' | 'low';
 export type DocType = 'html' | 'pdf';
 export type DigestStatus = 'success' | 'fail' | 'pending' | 'running' | 'completed' | 'failed';
@@ -169,7 +176,7 @@ export interface PaginatedResponse<T> {
 
 // Filter types
 export interface TenderFilters {
-  category?: TenderCategory;
+  category?: TenderCategoryFilter;
   priority?: TenderPriority;
   expired?: boolean;
   sourceId?: string;

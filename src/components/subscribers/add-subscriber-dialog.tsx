@@ -15,23 +15,19 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  CANONICAL_TENDER_CATEGORY_OPTIONS,
+  DEFAULT_SUBSCRIBER_CATEGORIES,
+} from '@/lib/tender-categories'
 import { toast } from '@/lib/sonner'
 import { useRouter } from 'next/navigation'
+import type { TenderCategory } from '@/types/database'
 
 interface AddSubscriberDialogProps {
   tenantId: string
   subscriberCount: number
   subscriberLimit: number
 }
-
-const CATEGORIES = [
-  { id: 'courier', label: 'Courier & Delivery' },
-  { id: 'printing', label: 'Printing & Publishing' },
-  { id: 'logistics', label: 'Logistics & Transport' },
-  { id: 'stationery', label: 'Stationery & Office Supplies' },
-  { id: 'it_hardware', label: 'IT Hardware' },
-  { id: 'general', label: 'General' },
-]
 
 export function AddSubscriberDialog({
   tenantId,
@@ -42,13 +38,15 @@ export function AddSubscriberDialog({
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(['courier', 'printing'])
+  const [selectedCategories, setSelectedCategories] = useState<TenderCategory[]>([
+    ...DEFAULT_SUBSCRIBER_CATEGORIES,
+  ])
   const router = useRouter()
   const supabase = createClient()
 
   const isAtLimit = subscriberLimit !== -1 && subscriberCount >= subscriberLimit
 
-  const handleCategoryToggle = (categoryId: string) => {
+  const handleCategoryToggle = (categoryId: TenderCategory) => {
     setSelectedCategories((prev) =>
       prev.includes(categoryId)
         ? prev.filter((id) => id !== categoryId)
@@ -76,6 +74,7 @@ export function AddSubscriberDialog({
         email: email.trim().toLowerCase(),
         is_active: true,
         preferences: {
+          name: name.trim(),
           categories: selectedCategories,
           highPriorityOnly: false,
           keywordsInclude: [],
@@ -102,7 +101,7 @@ export function AddSubscriberDialog({
       setOpen(false)
       setEmail('')
       setName('')
-      setSelectedCategories(['courier', 'printing'])
+      setSelectedCategories([...DEFAULT_SUBSCRIBER_CATEGORIES])
       router.refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add subscriber')
@@ -166,15 +165,15 @@ export function AddSubscriberDialog({
                 Select which tender categories this subscriber should receive
               </p>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {CATEGORIES.map((category) => (
-                  <div key={category.id} className="flex items-center space-x-2">
+                {CANONICAL_TENDER_CATEGORY_OPTIONS.map((category) => (
+                  <div key={category.value} className="flex items-center space-x-2">
                     <Checkbox
-                      id={category.id}
-                      checked={selectedCategories.includes(category.id)}
-                      onCheckedChange={() => handleCategoryToggle(category.id)}
+                      id={category.value}
+                      checked={selectedCategories.includes(category.value)}
+                      onCheckedChange={() => handleCategoryToggle(category.value)}
                     />
                     <Label
-                      htmlFor={category.id}
+                      htmlFor={category.value}
                       className="text-sm font-normal cursor-pointer"
                     >
                       {category.label}

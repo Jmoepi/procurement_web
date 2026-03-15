@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any, Optional
 
 from .config import settings
+from .categories import DEFAULT_SUBSCRIBER_CATEGORIES
 from .models import CrawledTender, CrawlResult
 
 logger = structlog.get_logger()
@@ -80,7 +81,7 @@ class Database:
         subscribers = []
         for sub in response.data:
             prefs = sub.get("preferences") or {}
-            sub["categories"] = prefs.get("categories", ["courier", "printing", "both"])
+            sub["categories"] = prefs.get("categories", list(DEFAULT_SUBSCRIBER_CATEGORIES))
             sub["name"] = prefs.get("name", sub["email"].split("@")[0])
             subscribers.append(sub)
         

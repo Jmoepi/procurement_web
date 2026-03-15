@@ -28,6 +28,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/lib/sonner'
+import {
+  getTenderCategoryLabel,
+  normalizeTenderCategorySelection,
+} from '@/lib/tender-categories'
+import { getCategoryColor } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import type { Subscription } from '@/types/database'
 
@@ -90,18 +95,9 @@ export function SubscribersTable({ subscribers, tenantId }: SubscribersTableProp
   }
 
   const getCategoryBadges = (categories: string[]) => {
-    const categoryColors: Record<string, string> = {
-      courier: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-      printing: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-      logistics: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-      stationery: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300',
-      it_hardware: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
-      general: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-    }
-
-    return categories.map((cat) => (
-      <Badge key={cat} variant="secondary" className={categoryColors[cat] || ''}>
-        {cat.replace('_', ' ')}
+    return normalizeTenderCategorySelection(categories).map((category) => (
+      <Badge key={category} variant="secondary" className={getCategoryColor(category)}>
+        {getTenderCategoryLabel(category)}
       </Badge>
     ))
   }

@@ -20,12 +20,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { createClient } from "@/lib/supabase/server";
 import { getDigestCompletedAt, getDigestRecipientCount, getDigestTenderCount, normalizeDigestStatus } from "@/lib/digests";
+import {
+  getClosingSoonTenantTenders,
+  getHighPriorityTenantTenders,
+  getRecentTenantTenders,
+  type TenderSummaryItem,
+} from "@/lib/tender-queries";
 import { formatDateShort, formatDaysRemaining, getCategoryColor, getPriorityColor } from "@/lib/utils";
 import type { PlanType, Tender, TenantStats } from "@/types";
-
-type TenderWithSource = Tender & {
-  source: { name: string } | null;
-};
 
 type SourceSnapshot = {
   name: string;
@@ -74,30 +76,9 @@ export default async function DashboardPage() {
     tenantResult,
   ] = await Promise.all([
     supabase.from("tenant_stats").select("*").eq("tenant_id", tenantId).single(),
-    supabase
-      .from("tenders")
-      .select("*, source:sources(name)")
-      .eq("tenant_id", tenantId)
-      .eq("expired", false)
-      .order("first_seen", { ascending: false })
-      .limit(5),
-    supabase
-      .from("tenders")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("priority", "high")
-      .eq("expired", false)
-      .order("closing_at", { ascending: true })
-      .limit(5),
-    supabase
-      .from("tenders")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("expired", false)
-      .gte("days_remaining", 0)
-      .lte("days_remaining", 7)
-      .order("days_remaining", { ascending: true })
-      .limit(6),
+    getRecentTenantTenders(supabase, tenantId, 5),
+    getHighPriorityTenantTenders(supabase, tenantId, 5),
+    getClosingSoonTenantTenders(supabase, tenantId, 6),
     supabase
       .from("sources")
       .select("name, last_crawled_at, crawl_success_rate, tenders_found")
@@ -116,9 +97,9 @@ export default async function DashboardPage() {
   ]);
 
   const stats = statsResult.data as TenantStats | null;
-  const recentTenders = (recentTendersResult.data ?? []) as TenderWithSource[];
-  const highPriorityTenders = (highPriorityTendersResult.data ?? []) as Tender[];
-  const closingSoonTenders = (closingSoonTendersResult.data ?? []) as Tender[];
+  const recentTenders = recentTendersResult.data as TenderSummaryItem[];
+  const highPriorityTenders = highPriorityTendersResult.data as Tender[];
+  const closingSoonTenders = closingSoonTendersResult.data as Tender[];
   const topSources = (sourcesResult.data ?? []) as SourceSnapshot[];
   const latestDigest = latestDigestResult.data as DigestSnapshot | null;
   const tenant = tenantResult.data as TenantInfo | null;

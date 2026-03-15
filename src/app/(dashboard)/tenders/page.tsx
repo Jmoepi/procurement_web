@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
+import { getTenderListPage } from "@/lib/tender-queries";
 import { TendersFilters } from "@/components/tenders/tenders-filters";
 import { TendersTable } from "@/components/tenders/tenders-table";
-import type { Tender } from "@/types";
 
 interface TendersPageProps {
   searchParams: Promise<{
@@ -29,41 +29,20 @@ export default async function TendersPage({ searchParams }: TendersPageProps) {
     .eq("id", user?.id ?? "")
     .single();
 
-  let query = supabase
-    .from("tenders")
-    .select("*, source:sources(name, url)", { count: "exact" })
-    .eq("tenant_id", profile?.tenant_id ?? "")
-    .order("first_seen", { ascending: false });
-
-  if (params.category && params.category !== "all") {
-    query = query.eq("category", params.category);
-  }
-
-  if (params.priority && params.priority !== "all") {
-    query = query.eq("priority", params.priority);
-  }
-
-  if (params.closing_soon === "true") {
-    query = query.eq("expired", false).gte("days_remaining", 0).lte("days_remaining", 7);
-  } else if (params.expired !== "true") {
-    query = query.eq("expired", false);
-  }
-
-  if (params.search) {
-    query = query.ilike("title", `%${params.search}%`);
-  }
-
   const page = Math.max(1, parseInt(params.page ?? "1"));
   const pageSize = 20;
-  const offset = (page - 1) * pageSize;
-  query = query.range(offset, offset + pageSize - 1);
+  const { data: tenders, count } = await getTenderListPage(supabase, {
+    tenantId: profile?.tenant_id ?? "",
+    category: params.category && params.category !== "all" ? params.category : undefined,
+    priority: params.priority && params.priority !== "all" ? params.priority : undefined,
+    search: params.search || undefined,
+    expired: params.closing_soon === "true" ? undefined : params.expired !== "true" ? false : true,
+    closingSoon: params.closing_soon === "true",
+    page,
+    pageSize,
+  });
 
-  const { data: tenders, count } = (await query) as {
-    data: (Tender & { source: { name: string; url: string } | null })[] | null;
-    count: number | null;
-  };
-
-  const totalPages = Math.max(1, Math.ceil((count ?? 0) / pageSize));
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
   const activeFilterCount = [
     params.category && params.category !== "all" ? params.category : null,
     params.priority && params.priority !== "all" ? params.priority : null,

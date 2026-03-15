@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from .categories import CANONICAL_TENDER_CATEGORIES
 
 # Load environment from project root
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -29,13 +30,7 @@ class Settings(BaseModel):
     retry_attempts: int = int(os.getenv("RETRY_ATTEMPTS", "3"))
     
     # Categories to search for
-    target_categories: list[str] = [
-        "courier",
-        "printing",
-        "logistics",
-        "stationery",
-        "it_hardware",
-    ]
+    target_categories: list[str] = list(CANONICAL_TENDER_CATEGORIES[:-1])
     
     # Keywords for category detection
     category_keywords: dict[str, list[str]] = {

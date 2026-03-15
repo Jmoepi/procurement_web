@@ -2,7 +2,7 @@
  * GET /api/tenders - List tenders for authenticated user
  * 
  * Query Parameters:
- * - category?: string (courier, printing, both, other)
+ * - category?: string (canonical category, both, other)
  * - priority?: string (high, medium, low)
  * - expired?: boolean
  * - search?: string
@@ -25,13 +25,15 @@ import {
 } from "@/lib/api-errors";
 import { requireAuth } from "@/lib/api-auth";
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config";
+import { TENDER_CATEGORY_FILTER_VALUES } from "@/lib/tender-categories";
+import { applyTenderFilters } from "@/lib/tender-queries";
 
 // Initialize rate limiter: 100 requests per hour
 const rateLimiter = createRateLimiter(60 * 60 * 1000, 100);
 
 // Validation schema
 const QuerySchema = z.object({
-  category: z.enum(["courier", "printing", "both", "other"]).optional(),
+  category: z.enum(TENDER_CATEGORY_FILTER_VALUES).optional(),
   priority: z.enum(["high", "medium", "low"]).optional(),
   expired: z.boolean().optional(),
   search: z.string().trim().min(1).max(160).optional(),
@@ -103,24 +105,14 @@ export async function GET(request: NextRequest) {
       .select("*", { count: "exact" })
       .eq("tenant_id", auth!.tenantId);
 
-    // Apply filters
-    if (params.category) {
-      query = query.eq("category", params.category);
-    }
-    if (params.priority) {
-      query = query.eq("priority", params.priority);
-    }
-    if (params.sourceId) {
-      query = query.eq("source_id", params.sourceId);
-    }
-    if (params.search) {
-      query = query.ilike("title", `%${params.search}%`);
-    }
-    if (params.closingSoon) {
-      query = query.eq("expired", false).gte("days_remaining", 0).lte("days_remaining", 7);
-    } else if (params.expired !== undefined) {
-      query = query.eq("expired", params.expired);
-    }
+    query = applyTenderFilters(query, {
+      category: params.category,
+      priority: params.priority,
+      sourceId: params.sourceId,
+      search: params.search,
+      closingSoon: params.closingSoon,
+      expired: params.expired,
+    });
 
     // Pagination
     const { data: tenders, count, error } = await query

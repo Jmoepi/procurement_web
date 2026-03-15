@@ -50,6 +50,7 @@ import type { DigestRun } from "@/types/database";
 
 interface DigestHistoryProps {
   digests: DigestRun[];
+  isAdmin: boolean;
 }
 
 type DigestDetailResponse = {
@@ -74,7 +75,7 @@ type DigestDetailResponse = {
   };
 };
 
-export function DigestHistory({ digests }: DigestHistoryProps) {
+export function DigestHistory({ digests, isAdmin }: DigestHistoryProps) {
   const [actionDigestId, setActionDigestId] = useState<string | null>(null);
   const [detailDigestId, setDetailDigestId] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<DigestDetailResponse | null>(null);
@@ -213,6 +214,7 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
             <MobileDigestCard
               key={digest.id}
               digest={digest}
+              isAdmin={isAdmin}
               loading={actionDigestId === digest.id}
               onViewDetails={() => openDigestDetails(digest.id)}
               onRetry={() => runDigestAction(digest, "retry")}
@@ -266,7 +268,7 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
                         <Eye className="h-4 w-4" />
                         Details
                       </Button>
-                      {canRetryDigest(digest.status) ? (
+                      {isAdmin && canRetryDigest(digest.status) ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -282,7 +284,7 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
                           Retry
                         </Button>
                       ) : null}
-                      {canCancelDigest(digest.status) ? (
+                      {isAdmin && canCancelDigest(digest.status) ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -351,7 +353,7 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
           <DialogFooter className="border-t border-border/60 px-6 py-4 sm:px-8">
             {detailData ? (
               <>
-                {canRetryDigest(detailData.digest.status) ? (
+                {isAdmin && canRetryDigest(detailData.digest.status) ? (
                   <Button
                     variant="outline"
                     className="border-border/60"
@@ -366,7 +368,7 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
                     Retry run
                   </Button>
                 ) : null}
-                {canCancelDigest(detailData.digest.status) ? (
+                {isAdmin && canCancelDigest(detailData.digest.status) ? (
                   <Button
                     variant="outline"
                     className="border-border/60"
@@ -395,12 +397,14 @@ export function DigestHistory({ digests }: DigestHistoryProps) {
 
 function MobileDigestCard({
   digest,
+  isAdmin,
   loading,
   onViewDetails,
   onRetry,
   onCancel,
 }: {
   digest: DigestRun;
+  isAdmin: boolean;
   loading: boolean;
   onViewDetails: () => void;
   onRetry: () => void;
@@ -455,7 +459,7 @@ function MobileDigestCard({
             <Eye className="h-4 w-4" />
             Details
           </Button>
-          {canRetryDigest(digest.status) ? (
+          {isAdmin && canRetryDigest(digest.status) ? (
             <Button
               variant="outline"
               size="sm"
@@ -471,7 +475,7 @@ function MobileDigestCard({
               Retry
             </Button>
           ) : null}
-          {canCancelDigest(digest.status) ? (
+          {isAdmin && canCancelDigest(digest.status) ? (
             <Button
               variant="outline"
               size="sm"

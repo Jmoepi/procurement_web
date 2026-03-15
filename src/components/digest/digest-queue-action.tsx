@@ -9,6 +9,7 @@ import { authenticatedJsonFetch } from "@/lib/authenticated-fetch"
 
 interface DigestQueueActionProps {
   hasActiveDigest: boolean
+  isAdmin: boolean
 }
 
 type QueueDigestResponse = {
@@ -19,7 +20,7 @@ type QueueDigestResponse = {
   message: string
 }
 
-export function DigestQueueAction({ hasActiveDigest }: DigestQueueActionProps) {
+export function DigestQueueAction({ hasActiveDigest, isAdmin }: DigestQueueActionProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -48,7 +49,7 @@ export function DigestQueueAction({ hasActiveDigest }: DigestQueueActionProps) {
     <div className="flex flex-col gap-2 sm:items-end">
       <Button
         onClick={handleQueueDigest}
-        disabled={loading || hasActiveDigest}
+        disabled={loading || hasActiveDigest || !isAdmin}
         className="min-w-[180px]"
       >
         {loading ? (
@@ -56,10 +57,16 @@ export function DigestQueueAction({ hasActiveDigest }: DigestQueueActionProps) {
         ) : (
           <Send className="h-4 w-4" />
         )}
-        {hasActiveDigest ? "Digest in progress" : "Queue digest now"}
+        {!isAdmin
+          ? "Admin access required"
+          : hasActiveDigest
+            ? "Digest in progress"
+            : "Queue digest now"}
       </Button>
       <p className="text-xs text-muted-foreground">
-        {hasActiveDigest
+        {!isAdmin
+          ? "Only workspace admins can queue or resend digest runs."
+          : hasActiveDigest
           ? "Wait for the current queued run to finish before triggering another."
           : "Use this to send a manual run immediately with the current digest window."}
       </p>

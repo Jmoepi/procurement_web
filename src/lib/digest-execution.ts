@@ -2,6 +2,11 @@ import { createClient } from "@supabase/supabase-js"
 import { sendTransactionalEmail } from "@/lib/email"
 import { getAppBaseUrl } from "@/lib/app-url"
 import { getSupabaseServiceRoleConfig } from "@/lib/supabase/config"
+import {
+  matchesTenderCategorySelection,
+  normalizeTenderCategorySelection,
+} from "@/lib/tender-categories"
+import type { TenderCategory } from "@/types/database"
 
 type DigestMetadata = Record<string, unknown>
 
@@ -45,7 +50,7 @@ type DigestTender = {
 }
 
 type DigestPreferences = {
-  categories: string[]
+  categories: TenderCategory[]
   highPriorityOnly: boolean
   keywordsInclude: string[]
   keywordsExclude: string[]
@@ -275,7 +280,9 @@ function parsePreferences(value: unknown): DigestPreferences {
       : 15
 
   return {
-    categories: normalizeList(raw.categories),
+    categories: normalizeTenderCategorySelection(
+      Array.isArray(raw.categories) ? raw.categories : []
+    ),
     highPriorityOnly: raw.highPriorityOnly === true,
     keywordsInclude: normalizeList(raw.keywordsInclude),
     keywordsExclude: normalizeList(raw.keywordsExclude),
@@ -334,22 +341,8 @@ function buildSearchText(tender: DigestTender) {
     .toLowerCase()
 }
 
-function matchesCategories(tender: DigestTender, categories: string[]) {
-  if (categories.length === 0) {
-    return true
-  }
-
-  const tenderCategory = tender.category.toLowerCase()
-
-  if (categories.includes(tenderCategory) || categories.includes("general")) {
-    return true
-  }
-
-  if (categories.includes("both")) {
-    return tenderCategory === "courier" || tenderCategory === "printing"
-  }
-
-  return false
+function matchesCategories(tender: DigestTender, categories: TenderCategory[]) {
+  return matchesTenderCategorySelection(tender.category.toLowerCase(), categories)
 }
 
 function filterTendersForSubscriber(tenders: DigestTender[], preferences: DigestPreferences) {

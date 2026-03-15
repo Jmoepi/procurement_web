@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  CANONICAL_TENDER_CATEGORY_OPTIONS,
+  DEFAULT_SUBSCRIBER_CATEGORIES,
+  normalizeTenderCategorySelection,
+} from "@/lib/tender-categories";
 import { toast } from "@/lib/sonner";
 import { Loader2 } from "lucide-react";
 import type { Subscription, SubscriptionPreferences, TenderCategory } from "@/types";
@@ -17,7 +22,7 @@ interface PreferencesFormProps {
 }
 
 const defaultPreferences: SubscriptionPreferences = {
-  categories: ["courier", "printing", "both"],
+  categories: [...DEFAULT_SUBSCRIBER_CATEGORIES],
   highPriorityOnly: false,
   keywordsInclude: [],
   keywordsExclude: [],
@@ -27,7 +32,14 @@ const defaultPreferences: SubscriptionPreferences = {
 
 export function PreferencesForm({ subscription }: PreferencesFormProps) {
   const [preferences, setPreferences] = useState<SubscriptionPreferences>(
-    subscription?.preferences ?? defaultPreferences
+    subscription
+      ? {
+          ...subscription.preferences,
+          categories: normalizeTenderCategorySelection(
+            subscription.preferences?.categories ?? []
+          ),
+        }
+      : defaultPreferences
   );
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -81,15 +93,15 @@ export function PreferencesForm({ subscription }: PreferencesFormProps) {
       <div className="space-y-4">
         <Label>Categories to Include</Label>
         <div className="space-y-2">
-          {(["courier", "printing", "both", "other"] as const).map((category) => (
-            <div key={category} className="flex items-center space-x-2">
+          {CANONICAL_TENDER_CATEGORY_OPTIONS.map((category) => (
+            <div key={category.value} className="flex items-center space-x-2">
               <Checkbox
-                id={category}
-                checked={preferences.categories.includes(category)}
-                onCheckedChange={() => handleCategoryToggle(category)}
+                id={category.value}
+                checked={preferences.categories.includes(category.value)}
+                onCheckedChange={() => handleCategoryToggle(category.value)}
               />
-              <Label htmlFor={category} className="capitalize cursor-pointer">
-                {category}
+              <Label htmlFor={category.value} className="cursor-pointer">
+                {category.label}
               </Label>
             </div>
           ))}

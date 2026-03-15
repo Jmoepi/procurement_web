@@ -21,6 +21,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  getTenderCategoryLabel,
+  TENDER_CATEGORY_FILTER_OPTIONS,
+} from "@/lib/tender-categories";
 import { cn } from "@/lib/utils";
 import { Clock3, Filter, Flame, Printer, Search, Truck, X } from "lucide-react";
 
@@ -180,10 +184,11 @@ export function TendersFilters() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="courier">Courier</SelectItem>
-                    <SelectItem value="printing">Printing</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    {TENDER_CATEGORY_FILTER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -260,10 +265,11 @@ export function TendersFilters() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="courier">Courier</SelectItem>
-            <SelectItem value="printing">Printing</SelectItem>
-            <SelectItem value="both">Both</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+            {TENDER_CATEGORY_FILTER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -327,7 +333,7 @@ export function TendersFilters() {
           )}
           {searchParams.get("category") && (
             <Badge variant="secondary" className="gap-1.5 px-2.5 py-1">
-              {searchParams.get("category")}
+              {getTenderCategoryLabel(searchParams.get("category") ?? "")}
               <button
                 onClick={() => handleFilterChange("category", null)}
                 className="rounded-full p-0.5 hover:bg-muted"

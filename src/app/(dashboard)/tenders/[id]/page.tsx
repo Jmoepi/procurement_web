@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getTenderDetailById } from "@/lib/tender-queries";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,6 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Calendar, Clock, Globe, FileText, ChevronRight, AlertTriangle, Share2, Bookmark } from "lucide-react";
 import { formatDate, formatDateTime, getCategoryColor, getPriorityColor, formatDaysRemaining } from "@/lib/utils";
-import type { Tender, Source, TenderDocument } from "@/types";
 
 interface TenderDetailPageProps {
   params: Promise<{ id: string }>;
@@ -17,14 +17,21 @@ export default async function TenderDetailPage({ params }: TenderDetailPageProps
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: tender, error } = await supabase
-    .from("tenders")
-    .select("*, source:sources(*), documents:tender_documents(*)")
-    .eq("id", id)
-    .single() as { 
-      data: (Tender & { source: Source | null; documents: TenderDocument[] }) | null;
-      error: unknown;
-    };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", user?.id ?? "")
+    .single();
+
+  const { data: tender, error } = await getTenderDetailById(
+    supabase,
+    profile?.tenant_id ?? "",
+    id
+  );
 
   if (error || !tender) {
     notFound();

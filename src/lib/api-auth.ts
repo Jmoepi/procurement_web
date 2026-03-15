@@ -3,10 +3,14 @@
  * Verifies Supabase auth tokens and extracts user context
  */
 
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { API_ERRORS, createErrorResponse, toNextResponse } from "./api-errors";
-import { getSupabaseServerConfig } from "@/lib/supabase/config";
+import {
+  getSupabaseServerConfig,
+  getSupabaseServiceRoleConfig,
+} from "@/lib/supabase/config";
 
 export interface AuthContext {
   userId: string;
@@ -15,10 +19,39 @@ export interface AuthContext {
   role: "admin" | "member";
 }
 
+async function loadAuthContextForUser(userId: string, email?: string | null): Promise<AuthContext | null> {
+  const { url, serviceRoleKey } = getSupabaseServiceRoleConfig();
+  const supabase = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("tenant_id, role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Profile lookup failed during API auth", error);
+    return null;
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    userId,
+    email: email || "",
+    tenantId: profile.tenant_id,
+    role: profile.role || "member",
+  };
+}
+
 /**
  * Extract and verify JWT from Authorization header
  */
-export async function verifyAuth(request: Request): Promise<AuthContext | null> {
+async function verifyBearerAuth(request: Request): Promise<AuthContext | null> {
   try {
     const authHeader = request.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -42,27 +75,93 @@ export async function verifyAuth(request: Request): Promise<AuthContext | null> 
       return null;
     }
 
-    // Get user's profile and tenant info
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("tenant_id, role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile) {
-      return null;
-    }
-
-    return {
-      userId: user.id,
-      email: user.email || "",
-      tenantId: profile.tenant_id,
-      role: profile.role || "member",
-    };
+    return loadAuthContextForUser(user.id, user.email);
   } catch (error) {
     console.error("Auth verification error:", error);
     return null;
   }
+}
+
+function getRequestCookies(request: Request) {
+  const requestWithCookies = request as Request & {
+    cookies?: {
+      getAll?: () => Array<{ name: string; value: string }>;
+    };
+  };
+
+  const nextRequestCookies =
+    typeof requestWithCookies.cookies?.getAll === "function"
+      ? requestWithCookies.cookies.getAll().map((cookie: { name: string; value: string }) => ({
+          name: cookie.name,
+          value: cookie.value,
+        }))
+      : [];
+
+  if (nextRequestCookies.length > 0) {
+    return nextRequestCookies;
+  }
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  if (!cookieHeader) {
+    return [];
+  }
+
+  return cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separatorIndex = entry.indexOf("=");
+      if (separatorIndex === -1) {
+        return null;
+      }
+
+      return {
+        name: entry.slice(0, separatorIndex).trim(),
+        value: decodeURIComponent(entry.slice(separatorIndex + 1).trim()),
+      };
+    })
+    .filter((cookie): cookie is { name: string; value: string } => Boolean(cookie));
+}
+
+async function verifyCookieAuthFromRequest(request: Request): Promise<AuthContext | null> {
+  try {
+    const requestCookies = getRequestCookies(request);
+    if (requestCookies.length === 0) {
+      return null;
+    }
+
+    const { url, anonKey } = getSupabaseServerConfig();
+    const supabase = createServerClient(url, anonKey, {
+      cookies: {
+        getAll: () => requestCookies,
+        setAll: () => {},
+      },
+    });
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    return loadAuthContextForUser(user.id, user.email);
+  } catch (error) {
+    console.error("Cookie auth verification error:", error);
+    return null;
+  }
+}
+
+export async function verifyAuth(request: Request): Promise<AuthContext | null> {
+  const bearerAuth = await verifyBearerAuth(request);
+  if (bearerAuth) {
+    return bearerAuth;
+  }
+
+  return verifyCookieAuthFromRequest(request);
 }
 
 /**
@@ -74,7 +173,7 @@ export async function requireAuth(request: Request) {
   if (!auth) {
     const [errorData, statusCode] = createErrorResponse(
       API_ERRORS.UNAUTHORIZED.code,
-      "Authentication required. Please provide a valid Bearer token.",
+      "Authentication required. Please sign in again.",
       API_ERRORS.UNAUTHORIZED.statusCode
     );
     return { auth: null, response: toNextResponse(errorData, statusCode) };

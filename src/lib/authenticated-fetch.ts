@@ -42,6 +42,7 @@ export async function authenticatedJsonFetch<T>(
 
   const response = await fetch(input, {
     ...init,
+    credentials: "include",
     headers,
   })
 
