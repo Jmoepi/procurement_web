@@ -1,8 +1,8 @@
 """Supabase database client for the crawler."""
 import structlog
 from supabase import create_client, Client
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
+from typing import Any, Optional
 
 from .config import settings
 from .models import CrawledTender, CrawlResult
@@ -261,6 +261,88 @@ class Database:
             "metadata": {"recipient_count": recipient_count}
         }).execute()
         return response.data[0]["id"]
+
+    async def create_pending_digest_run(
+        self,
+        tenant_id: str,
+        tenders_found: int,
+        recipient_count: int,
+        metadata: dict[str, Any],
+    ) -> Optional[str]:
+        """Create or update a pending digest run for a tenant."""
+        try:
+            queued_at = datetime.utcnow().isoformat()
+            payload_metadata = dict(metadata or {})
+            payload_metadata["recipient_count"] = recipient_count
+            payload_metadata.setdefault("subscriber_count", recipient_count)
+            payload_metadata.setdefault("queued_at", queued_at)
+
+            existing_response = self.client.table("digest_runs").select(
+                "id, status, tenders_found, metadata"
+            ).eq("tenant_id", tenant_id).in_(
+                "status", ["pending", "running"]
+            ).order(
+                "created_at", desc=False
+            ).limit(1).execute()
+
+            existing = existing_response.data[0] if existing_response.data else None
+
+            if existing and existing["status"] == "pending":
+                existing_metadata = existing.get("metadata") or {}
+                existing_tender_ids = existing_metadata.get("tender_ids") or []
+                new_tender_ids = payload_metadata.get("tender_ids") or []
+
+                merged_tender_ids: list[str] = []
+                for tender_id in [*existing_tender_ids, *new_tender_ids]:
+                    if isinstance(tender_id, str) and tender_id and tender_id not in merged_tender_ids:
+                        merged_tender_ids.append(tender_id)
+
+                merged_metadata = {
+                    **existing_metadata,
+                    **payload_metadata,
+                    "tender_ids": merged_tender_ids,
+                    "recipient_count": recipient_count,
+                    "subscriber_count": recipient_count,
+                    "last_queued_at": queued_at,
+                }
+
+                self.client.table("digest_runs").update({
+                    "tenders_found": len(merged_tender_ids),
+                    "metadata": merged_metadata,
+                }).eq("id", existing["id"]).execute()
+
+                return existing["id"]
+
+            if existing and existing["status"] == "running":
+                logger.info(
+                    "Digest run already active for tenant",
+                    tenant_id=tenant_id,
+                    digest_id=existing["id"],
+                    status=existing["status"],
+                )
+                return existing["id"]
+
+            response = self.client.table("digest_runs").insert({
+                "tenant_id": tenant_id,
+                "run_date": date.today().isoformat(),
+                "status": "pending",
+                "tenders_found": tenders_found,
+                "emails_sent": 0,
+                "error_message": None,
+                "metadata": payload_metadata,
+            }).execute()
+
+            if response.data:
+                return response.data[0]["id"]
+
+        except Exception as e:
+            logger.error(
+                "Failed to create pending digest run",
+                tenant_id=tenant_id,
+                error=str(e),
+            )
+
+        return None
     
     async def update_digest_run(
         self, 

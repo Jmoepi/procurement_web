@@ -3,7 +3,7 @@ import asyncio
 import argparse
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -13,8 +13,7 @@ from .config import settings
 from .database import db
 from .dedup import deduplicate_tenders
 from .ranker import rank_tenders
-from .sender import email_sender
-from .models import CrawledTender, CrawlResult, DigestData
+from .models import CrawledTender, CrawlResult
 from .crawlers.etender import ETenderCrawler, ProvincialTreasuryCrawler
 from .crawlers.soe import (
     TransnetCrawler,
@@ -93,6 +92,43 @@ def setup_logging(verbose: bool = False) -> None:
     structlog.get_logger().info("Logging initialized", log_file=str(log_file))
 
 logger = structlog.get_logger()
+
+
+async def queue_tenant_digest(tenant_id: str, tender_ids: list[str]) -> Optional[str]:
+    """Queue a pending digest job for the tenant."""
+    subscribers = await db.get_tenant_subscribers(tenant_id)
+
+    if not subscribers:
+        logger.info("No subscribers for tenant", tenant_id=tenant_id)
+        return None
+
+    if not tender_ids:
+        logger.info("No tender IDs available to queue digest", tenant_id=tenant_id)
+        return None
+
+    digest_id = await db.create_pending_digest_run(
+        tenant_id=tenant_id,
+        tenders_found=len(tender_ids),
+        recipient_count=len(subscribers),
+        metadata={
+            "triggered_by": "crawler",
+            "triggered_at": datetime.utcnow().isoformat(),
+            "tender_ids": tender_ids,
+            "tenders_included": len(tender_ids),
+            "subscriber_count": len(subscribers),
+        },
+    )
+
+    if digest_id:
+        logger.info(
+            "Queued digest run",
+            tenant_id=tenant_id,
+            digest_id=digest_id,
+            tenders=len(tender_ids),
+            subscribers=len(subscribers),
+        )
+
+    return digest_id
 
 
 async def create_crawler_for_source(source: dict) -> Optional[object]:
@@ -253,6 +289,7 @@ async def process_tenant(tenant_id: str, dry_run: bool = False) -> dict:
     
     # Save new tenders to database
     new_tenders: list[CrawledTender] = []
+    new_tender_ids: list[str] = []
     for tender in ranked_tenders:
         if dry_run:
             new_tenders.append(tender)
@@ -270,6 +307,7 @@ async def process_tenant(tenant_id: str, dry_run: bool = False) -> dict:
             tender_id = await db.insert_tender(tenant_id, tender)
             if tender_id:
                 new_tenders.append(tender)
+                new_tender_ids.append(tender_id)
     
     logger.info("New tenders saved", count=len(new_tenders))
     
@@ -280,76 +318,17 @@ async def process_tenant(tenant_id: str, dry_run: bool = False) -> dict:
             "crawl_results": results,
         }
     
-    # Send digest emails
+    digest_id = None
     if not dry_run:
-        await send_tenant_digests(tenant_id, new_tenders)
+        digest_id = await queue_tenant_digest(tenant_id, new_tender_ids)
     
     return {
         "tenant_id": tenant_id,
         "status": "success",
         "new_tenders": len(new_tenders),
+        "digest_id": digest_id,
         "crawl_results": results,
     }
-
-
-async def send_tenant_digests(tenant_id: str, tenders: list[CrawledTender]):
-    """Send digest emails to all subscribers of a tenant."""
-    # Get tenant info
-    tenants = await db.get_active_tenants()
-    tenant = next((t for t in tenants if t["id"] == tenant_id), None)
-    
-    if not tenant:
-        logger.error("Tenant not found", tenant_id=tenant_id)
-        return
-    
-    # Get all subscribers
-    subscribers = await db.get_tenant_subscribers(tenant_id)
-    
-    if not subscribers:
-        logger.info("No subscribers for tenant", tenant_id=tenant_id)
-        return
-    
-    # Create digest run record
-    digest_id = await db.create_digest_run(tenant_id, len(tenders), len(subscribers))
-    
-    try:
-        sent_count = 0
-        
-        for subscriber in subscribers:
-            # Filter tenders by subscriber's categories
-            prefs = subscriber.get("preferences") or {}
-            sub_categories = prefs.get("categories", [])
-            
-            filtered_tenders = [
-                t for t in tenders
-                if t.category.value in sub_categories or "general" in sub_categories
-            ]
-            
-            if not filtered_tenders:
-                continue
-            
-            digest = DigestData(
-                tenant_id=tenant_id,
-                tenant_name=tenant.get("name", "Your Organization"),
-                subscriber_email=subscriber["email"],
-                subscriber_name=subscriber.get("name"),
-                unsubscribe_token=subscriber.get("unsubscribe_token"),
-                subscriber_categories=sub_categories,
-                tenders=filtered_tenders,
-            )
-            
-            success = await email_sender.send_digest(digest)
-            if success:
-                sent_count += 1
-        
-        # Update digest run
-        await db.update_digest_run(digest_id, "success", sent_count)
-        logger.info("Digests sent", count=sent_count, total_subscribers=len(subscribers))
-        
-    except Exception as e:
-        await db.update_digest_run(digest_id, "fail", error_message=str(e))
-        logger.error("Digest sending failed", error=str(e))
-        raise
 
 
 async def run_daily_crawl(tenant_id: Optional[str] = None, dry_run: bool = False):
@@ -410,7 +389,7 @@ def main():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Don't save to database or send emails",
+        help="Don't save to database or queue digest jobs",
     )
     parser.add_argument(
         "--verbose",
@@ -428,9 +407,6 @@ def main():
     if not settings.supabase_url or not settings.supabase_service_role_key:
         logger.error("Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
         sys.exit(1)
-    
-    if not args.dry_run and not settings.resend_api_key:
-        logger.warning("Missing RESEND_API_KEY - emails will not be sent")
     
     # Run
     results = asyncio.run(

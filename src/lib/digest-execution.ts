@@ -114,6 +114,92 @@ function getMetadataValue(value: unknown) {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {}
 }
 
+function getStringList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+}
+
+function getQueuedTenderIds(metadata: DigestMetadata) {
+  const tenderIds = Array.isArray(metadata.tender_ids) ? metadata.tender_ids : metadata.tenders_included
+
+  return [...new Set(getStringList(tenderIds))]
+}
+
+async function loadDigestMetadata(digestId: string) {
+  const supabase = getSupabaseAdmin()
+  const { data, error } = await supabase
+    .from("digest_runs")
+    .select("metadata")
+    .eq("id", digestId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to load digest metadata: ${error.message}`)
+  }
+
+  return getMetadataValue(data?.metadata)
+}
+
+async function resolveDigestTenderIds(digestId: string, metadata: DigestMetadata) {
+  const directTenderIds = getQueuedTenderIds(metadata)
+  if (directTenderIds.length > 0) {
+    return directTenderIds
+  }
+
+  const retryOf =
+    typeof metadata.retry_of === "string" && metadata.retry_of.trim().length > 0
+      ? metadata.retry_of.trim()
+      : null
+
+  if (!retryOf) {
+    return []
+  }
+
+  const sourceMetadata = await loadDigestMetadata(retryOf)
+  return getQueuedTenderIds(sourceMetadata)
+}
+
+async function loadDigestTenders(options: {
+  tenantId: string
+  tenderIds: string[]
+  windowStartedAt: string
+}) {
+  const supabase = getSupabaseAdmin()
+  let query = supabase
+    .from("tenders")
+    .select("id, title, url, category, priority, closing_at, summary, first_seen, metadata, source:sources(name)")
+    .eq("tenant_id", options.tenantId)
+
+  if (options.tenderIds.length > 0) {
+    const { data, error } = await query.in("id", options.tenderIds)
+
+    if (error) {
+      throw new Error(`Failed to load queued tenders: ${error.message}`)
+    }
+
+    const tendersById = new Map(
+      ((data ?? []) as DigestTenderRaw[]).map((row) => [row.id, normalizeTender(row)])
+    )
+
+    return options.tenderIds
+      .map((tenderId) => tendersById.get(tenderId))
+      .filter((tender): tender is DigestTender => Boolean(tender))
+  }
+
+  const { data, error } = await query.eq("expired", false).gte("first_seen", options.windowStartedAt)
+
+  if (error) {
+    throw new Error(`Failed to load tenders: ${error.message}`)
+  }
+
+  return ((data ?? []) as DigestTenderRaw[]).map(normalizeTender)
+}
+
 async function getDigestRunControlState(digestId: string) {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
@@ -536,6 +622,7 @@ export async function executeDigestRun(options: {
   metadata?: DigestMetadata | null
 }): Promise<ExecuteDigestRunResult> {
   const supabase = getSupabaseAdmin()
+  const metadata = options.metadata ?? {}
 
   const { data: latestSuccessfulDigest, error: latestDigestError } = await supabase
     .from("digest_runs")
@@ -552,21 +639,24 @@ export async function executeDigestRun(options: {
   }
 
   const fallbackWindowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  const windowStartedAt = latestSuccessfulDigest?.started_at ?? fallbackWindowStart
+  const windowStartedAt =
+    typeof metadata.triggered_at === "string" && metadata.triggered_at.trim().length > 0
+      ? metadata.triggered_at
+      : latestSuccessfulDigest?.started_at ?? fallbackWindowStart
+  const tenderIds = await resolveDigestTenderIds(options.digestId, metadata)
 
-  const [tenantResult, subscribersResult, tendersResult] = await Promise.all([
+  const [tenantResult, subscribersResult, tenders] = await Promise.all([
     supabase.from("tenants").select("id, name").eq("id", options.tenantId).maybeSingle(),
     supabase
       .from("subscriptions")
       .select("id, email, preferences, unsubscribe_token")
       .eq("tenant_id", options.tenantId)
       .eq("is_active", true),
-    supabase
-      .from("tenders")
-      .select("id, title, url, category, priority, closing_at, summary, first_seen, metadata, source:sources(name)")
-      .eq("tenant_id", options.tenantId)
-      .eq("expired", false)
-      .gte("first_seen", windowStartedAt),
+    loadDigestTenders({
+      tenantId: options.tenantId,
+      tenderIds,
+      windowStartedAt,
+    }),
   ])
 
   if (tenantResult.error) {
@@ -575,9 +665,6 @@ export async function executeDigestRun(options: {
   if (subscribersResult.error) {
     throw new Error(`Failed to load subscribers: ${subscribersResult.error.message}`)
   }
-  if (tendersResult.error) {
-    throw new Error(`Failed to load tenders: ${tendersResult.error.message}`)
-  }
 
   const tenant = tenantResult.data as DigestTenant | null
   if (!tenant) {
@@ -585,7 +672,6 @@ export async function executeDigestRun(options: {
   }
 
   const subscribers = (subscribersResult.data ?? []) as DigestSubscriber[]
-  const tenders = ((tendersResult.data ?? []) as DigestTenderRaw[]).map(normalizeTender)
 
   if (subscribers.length === 0 || tenders.length === 0) {
     const digest = await updateDigestRun({
@@ -596,7 +682,7 @@ export async function executeDigestRun(options: {
       matchedRecipientCount: 0,
       emailsSent: 0,
       failures: [],
-      metadata: options.metadata ?? {},
+      metadata,
       windowStartedAt,
     })
 
@@ -638,7 +724,7 @@ export async function executeDigestRun(options: {
         message: attempt.message,
       })),
       metadata: {
-        ...options.metadata,
+        ...metadata,
         ...(controlMetadata ?? {}),
         cancelled_at: new Date().toISOString(),
       },
@@ -742,14 +828,14 @@ export async function executeDigestRun(options: {
     tenders,
     recipientCount: subscribers.length,
     matchedRecipientCount,
-    emailsSent: sentAttempts.length,
-    failures: failedAttempts.map((attempt) => ({
-      email: attempt.email,
-      message: attempt.message,
-    })),
-    metadata: options.metadata ?? {},
-    windowStartedAt,
-  })
+      emailsSent: sentAttempts.length,
+      failures: failedAttempts.map((attempt) => ({
+        email: attempt.email,
+        message: attempt.message,
+      })),
+      metadata,
+      windowStartedAt,
+    })
 
   return {
     digest,

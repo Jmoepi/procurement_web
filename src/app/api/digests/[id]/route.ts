@@ -104,6 +104,16 @@ function getDigestMetadata(value: unknown): DigestMetadata {
     : {};
 }
 
+function getDigestTenderIds(metadata: DigestMetadata) {
+  const rawTenderIds = Array.isArray(metadata.tender_ids)
+    ? metadata.tender_ids
+    : Array.isArray(metadata.tenders_included)
+      ? metadata.tenders_included
+      : [];
+
+  return [...new Set(rawTenderIds.filter((value): value is string => typeof value === "string"))];
+}
+
 function serializeDigest(digest: DigestRow) {
   return {
     ...digest,
@@ -181,15 +191,7 @@ export async function GET(
     const digestRow = digest as DigestRow;
     const metadata = getDigestMetadata(digestRow.metadata);
 
-    const metadataTenderIds = Array.isArray(metadata.tender_ids)
-      ? metadata.tender_ids
-      : Array.isArray(metadata.tenders_included)
-        ? metadata.tenders_included
-        : [];
-
-    const tenderIds = metadataTenderIds.filter(
-      (value): value is string => typeof value === "string"
-    );
+    const tenderIds = getDigestTenderIds(metadata);
 
     let tendersData: TenderRow[] = [];
 
@@ -512,6 +514,7 @@ export async function PATCH(
           retry_of_status: digestRow.status,
           retry_requested_at: now,
           retry_requested_by: auth!.userId,
+          tender_ids: getDigestTenderIds(metadata),
         },
       })
       .select(
